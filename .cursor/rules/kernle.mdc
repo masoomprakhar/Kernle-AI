@@ -1,0 +1,26 @@
+---
+description: Kernle AI stack and product constraints
+globs:
+alwaysApply: true
+---
+
+# Kernle AI
+
+Multi-tenant B2B PIM (Akeneo-class category). Original branding/copy only — never copy competitor UI, purple palette, or marketing text.
+
+## Stack
+- Monorepo: pnpm workspaces
+- `apps/web`: Next.js App Router, TypeScript, Tailwind, shadcn/ui
+- `apps/api`: NestJS + TypeScript REST
+- `packages/db`: Prisma + PostgreSQL
+- `packages/types`: shared types
+- Redis + BullMQ; S3/MinIO for DAM; Anthropic for AI; Stripe for billing
+
+## Multi-tenancy
+- Every tenant table has `organizationId`
+- Use Prisma tenant extension / scoped client — never query without org context
+- RBAC roles: Owner, Admin, CatalogManager, Contributor, Viewer — enforce in API guards
+
+## AI safety
+- Never auto-commit AI output to live product data
+- No raw SQL from LLM — whitelisted tools only

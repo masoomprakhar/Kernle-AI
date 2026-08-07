@@ -1,0 +1,122 @@
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { IsArray, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { AiService } from './ai.service';
+
+class AskDto {
+  @IsString() message!: string;
+  @IsOptional() @IsString() conversationId?: string;
+}
+
+class SuggestFillDto {
+  @IsString() productId!: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) attributeCodes?: string[];
+}
+
+class MarketSignalDto {
+  @IsString() sku!: string;
+  @IsString() signalType!: string;
+  @IsNumber() value!: number;
+  @IsOptional() @IsObject() metadata?: object;
+}
+
+function org(user: AuthUser) {
+  if (!user.organizationId) throw new ForbiddenException('Organization context required');
+  return user.organizationId;
+}
+
+@ApiTags('ai')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('ai')
+export class AiController {
+  constructor(private ai: AiService) {}
+
+  @Post('ask')
+  @Roles('Contributor')
+  ask(@CurrentUser() user: AuthUser, @Body() dto: AskDto) {
+    return this.ai.ask(org(user), user.id, dto.message, dto.conversationId);
+  }
+
+  @Post('fill/suggest')
+  @Roles('Contributor')
+  suggestFill(@CurrentUser() user: AuthUser, @Body() dto: SuggestFillDto) {
+    return this.ai.suggestFill(org(user), user.id, dto.productId, dto.attributeCodes);
+  }
+
+  @Get('suggestions')
+  @Roles('Viewer')
+  suggestions(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    return this.ai.listSuggestions(org(user), status || 'pending');
+  }
+
+  @Post('suggestions/:id/accept')
+  @Roles('Contributor')
+  accept(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.ai.acceptSuggestion(org(user), user.id, id);
+  }
+
+  @Post('suggestions/:id/reject')
+  @Roles('Contributor')
+  reject(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.ai.rejectSuggestion(org(user), user.id, id);
+  }
+
+  @Post('quality/scan')
+  @Roles('CatalogManager')
+  qualityScan(@CurrentUser() user: AuthUser) {
+    return this.ai.enqueueQualityScan(org(user), user.id);
+  }
+
+  @Get('quality/findings')
+  @Roles('Viewer')
+  findings(@CurrentUser() user: AuthUser, @Query('resolved') resolved?: string) {
+    return this.ai.listFindings(
+      org(user),
+      resolved === undefined ? undefined : resolved === 'true',
+    );
+  }
+
+  @Post('quality/findings/:id/resolve')
+  @Roles('Contributor')
+  resolveFinding(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.ai.resolveFinding(org(user), id);
+  }
+
+  @Get('market-signals')
+  @Roles('Viewer')
+  signals(@CurrentUser() user: AuthUser, @Query('sku') sku?: string) {
+    return this.ai.listSignals(org(user), sku);
+  }
+
+  @Post('market-signals')
+  @Roles('CatalogManager')
+  createSignal(@CurrentUser() user: AuthUser, @Body() dto: MarketSignalDto) {
+    return this.ai.createSignal(org(user), user.id, dto);
+  }
+
+  @Get('market-signals/correlation')
+  @Roles('Viewer')
+  correlation(@CurrentUser() user: AuthUser, @Query('signalType') signalType?: string) {
+    return this.ai.correlationInsight(org(user), signalType);
+  }
+
+  @Get('usage')
+  @Roles('Admin')
+  usage(@CurrentUser() user: AuthUser) {
+    return this.ai.listUsage(org(user));
+  }
+}

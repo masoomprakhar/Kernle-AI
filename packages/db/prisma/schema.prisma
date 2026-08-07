@@ -1,0 +1,768 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  Owner
+  Admin
+  CatalogManager
+  Contributor
+  Viewer
+}
+
+enum UseCase {
+  Retail
+  B2B_Manufacturing
+  Fashion
+  Food_Beverage
+  Other
+}
+
+enum SkuBand {
+  lt_1k
+  one_k_10k
+  ten_k_100k
+  hundred_k_plus
+}
+
+enum AttributeType {
+  text
+  textarea
+  number
+  boolean
+  date
+  select
+  multiselect
+  price
+  media
+  metric
+}
+
+enum ImportJobStatus {
+  pending
+  running
+  success
+  partial
+  failed
+}
+
+enum UpdateBehavior {
+  create_only
+  update_only
+  upsert
+}
+
+enum SupplierSubmissionStatus {
+  pending_review
+  approved
+  rejected
+}
+
+enum ConnectorType {
+  shopify
+  bigcommerce
+  amazon
+  walmart
+  generic_api
+  print
+}
+
+enum SyndicationAction {
+  create
+  update
+  delete
+}
+
+enum SyncStatus {
+  in_sync
+  pending
+  error
+}
+
+enum PlanTier {
+  Starter
+  Growth
+  Enterprise
+}
+
+enum AssetRole {
+  main_image
+  gallery
+  swatch
+  spec_sheet
+  other
+}
+
+model Organization {
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  industry       String?
+  useCase        UseCase?
+  skuBand        SkuBand?
+  onboardingDone Boolean   @default(false)
+  plan           PlanTier  @default(Starter)
+  stripeCustomerId String? @unique
+  stripeSubId    String?
+  aiCreditsUsed  Int       @default(0)
+  aiCreditsLimit Int       @default(500)
+  skuLimit       Int       @default(1000)
+  seatLimit      Int       @default(5)
+  channelLimit   Int       @default(2)
+  featureFlags   Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  memberships    Membership[]
+  workspaces     Workspace[]
+  auditLogs      AuditLog[]
+  invites        Invite[]
+  attributes     Attribute[]
+  attributeGroups AttributeGroup[]
+  families       Family[]
+  categories     Category[]
+  products       Product[]
+  productModels  ProductModel[]
+  channels       Channel[]
+  locales        Locale[]
+  assets         Asset[]
+  assetCategories AssetCategory[]
+  importProfiles ImportProfile[]
+  importJobs     ImportJob[]
+  exportProfiles ExportProfile[]
+  exportJobs     ExportJob[]
+  suppliers      Supplier[]
+  syndicationLogs SyndicationLog[]
+  aiSuggestions  AiSuggestion[]
+  aiUsageLogs    AiUsageLog[]
+  qualityFindings QualityFinding[]
+  marketSignals  MarketSignal[]
+  conversations  AiConversation[]
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String
+  name            String
+  emailVerifiedAt DateTime?
+  isSuperAdmin    Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  memberships         Membership[]
+  refreshTokens       RefreshToken[]
+  emailTokens         EmailToken[]
+  invitesSent         Invite[]       @relation("InviteSender")
+  auditLogs           AuditLog[]
+  productsUpdated     Product[]      @relation("ProductUpdater")
+  importJobs          ImportJob[]
+  exportJobs          ExportJob[]
+  submissionsReviewed SupplierSubmission[] @relation("SubmissionReviewer")
+  aiFeedback          AiFeedback[]
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        RoleName @unique
+  description String?
+  permissions Permission[]
+  memberships Membership[]
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  code        String @unique
+  description String?
+  roles       Role[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  roleId         String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+}
+
+model Workspace {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  entityType     String
+  entityId       String?
+  before         Json?
+  after          Json?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EmailToken {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model Invite {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String
+  roleName       RoleName  @default(Contributor)
+  tokenHash      String    @unique
+  invitedById    String?
+  acceptedAt     DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("InviteSender", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+// ─── Phase 2: PIM ───────────────────────────────────────────
+
+model Locale {
+  id             String  @id @default(cuid())
+  organizationId String
+  code           String
+  label          String
+  enabled        Boolean @default(true)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+}
+
+model Channel {
+  id               String        @id @default(cuid())
+  organizationId   String
+  code             String
+  label            String
+  locales          String[]
+  categoryTreeId   String?
+  activationStatus String        @default("draft")
+  connectorType    ConnectorType?
+  credentialsEnc   String?
+  fieldMapping     Json          @default("{}")
+  categoryMapping  Json          @default("{}")
+  autoSync         Boolean       @default(true)
+  paused           Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryTree     Category?       @relation(fields: [categoryTreeId], references: [id], onDelete: SetNull)
+  syndicationRules SyndicationRule[]
+  syndicationLogs  SyndicationLog[]
+  productSyncs     ProductChannelSync[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model AttributeGroup {
+  id             String @id @default(cuid())
+  organizationId String
+  code           String
+  label          Json
+  sortOrder      Int    @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attributes   Attribute[]
+
+  @@unique([organizationId, code])
+}
+
+model Attribute {
+  id              String        @id @default(cuid())
+  organizationId  String
+  code            String
+  label           Json
+  type            AttributeType
+  scopable        Boolean       @default(false)
+  localizable     Boolean       @default(false)
+  validationRules Json          @default("{}")
+  unit            String?
+  options         Json          @default("[]")
+  groupId         String?
+  sortOrder       Int           @default(0)
+  archived        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        AttributeGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  familyAttrs  FamilyAttribute[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Family {
+  id                String   @id @default(cuid())
+  organizationId    String
+  code              String
+  label             Json
+  labelAttributeCode String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attributes   FamilyAttribute[]
+  products     Product[]
+  productModels ProductModel[]
+
+  @@unique([organizationId, code])
+}
+
+model FamilyAttribute {
+  id                    String  @id @default(cuid())
+  familyId              String
+  attributeId           String
+  requiredForCompleteness Json  @default("[]")
+  sortOrder             Int     @default(0)
+
+  family    Family    @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  attribute Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, attributeId])
+}
+
+model Category {
+  id             String  @id @default(cuid())
+  organizationId String
+  code           String
+  label          Json
+  parentId       String?
+  sortOrder      Int     @default(0)
+  productCount   Int     @default(0)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Category?    @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Category[]   @relation("CategoryTree")
+  products     ProductCategory[]
+  channels     Channel[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, parentId])
+}
+
+model ProductModel {
+  id               String   @id @default(cuid())
+  organizationId   String
+  code             String
+  familyId         String
+  variantAxes      String[]
+  sharedValues     Json     @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  family       Family       @relation(fields: [familyId], references: [id])
+  variants     Product[]
+
+  @@unique([organizationId, code])
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  organizationId   String
+  sku              String
+  familyId         String?
+  productModelId   String?
+  enabled          Boolean  @default(true)
+  values           Json     @default("{}")
+  completeness     Json     @default("{}")
+  geoScore         Int      @default(0)
+  geoBreakdown     Json     @default("{}")
+  searchText       String   @default("")
+  updatedById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  family       Family?      @relation(fields: [familyId], references: [id], onDelete: SetNull)
+  productModel ProductModel? @relation(fields: [productModelId], references: [id], onDelete: SetNull)
+  updatedBy    User?        @relation("ProductUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  categories   ProductCategory[]
+  assetLinks   AssetProductLink[]
+  channelSyncs ProductChannelSync[]
+  comments     ProductComment[]
+  aiSuggestions AiSuggestion[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, enabled])
+  @@index([organizationId, familyId])
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+}
+
+model ProductComment {
+  id        String   @id @default(cuid())
+  productId String
+  authorId  String?
+  body      String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+// ─── Phase 3: DAM ───────────────────────────────────────────
+
+model Asset {
+  id             String   @id @default(cuid())
+  organizationId String
+  filename       String
+  mimeType       String
+  size           Int
+  storageKey     String
+  width          Int?
+  height         Int?
+  duration       Float?
+  tags           String[]
+  metadata       Json     @default("{}")
+  thumbnailKey   String?
+  categoryId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category     AssetCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  productLinks AssetProductLink[]
+
+  @@index([organizationId])
+}
+
+model AssetCategory {
+  id             String  @id @default(cuid())
+  organizationId String
+  code           String
+  label          Json
+  parentId       String?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       AssetCategory?  @relation("AssetCatTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     AssetCategory[] @relation("AssetCatTree")
+  assets       Asset[]
+
+  @@unique([organizationId, code])
+}
+
+model AssetProductLink {
+  id         String    @id @default(cuid())
+  assetId    String
+  productId  String
+  role       AssetRole @default(gallery)
+  sortOrder  Int       @default(0)
+
+  asset   Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([assetId, productId, role])
+  @@index([productId])
+}
+
+// ─── Phase 4: Import / Export / SDM ─────────────────────────
+
+model ImportProfile {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  sourceType     String
+  columnMapping  Json           @default("{}")
+  updateBehavior UpdateBehavior @default(upsert)
+  scheduleCron   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs         ImportJob[]
+}
+
+model ImportJob {
+  id             String          @id @default(cuid())
+  organizationId String
+  profileId      String?
+  status         ImportJobStatus @default(pending)
+  fileKey        String?
+  totalRows      Int             @default(0)
+  successRows    Int             @default(0)
+  errorRows      Int             @default(0)
+  errorLog       Json            @default("[]")
+  startedById    String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime        @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile      ImportProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  startedBy    User?          @relation(fields: [startedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+}
+
+model ExportProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  targetFormat   String
+  filter         Json     @default("{}")
+  fieldSelection Json     @default("[]")
+  destination    String   @default("download")
+  webhookUrl     String?
+  scheduleCron   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobs         ExportJob[]
+}
+
+model ExportJob {
+  id             String   @id @default(cuid())
+  organizationId String
+  profileId      String?
+  status         String   @default("pending")
+  fileKey        String?
+  rowCount       Int      @default(0)
+  startedById    String?
+  finishedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  profile      ExportProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  startedBy    User?          @relation(fields: [startedById], references: [id], onDelete: SetNull)
+}
+
+model Supplier {
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  contactEmail      String?
+  contactInfo       Json     @default("{}")
+  portalAccessToken String   @unique @default(cuid())
+  categoryIds       String[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submissions  SupplierSubmission[]
+
+  @@index([organizationId])
+}
+
+model SupplierSubmission {
+  id             String                   @id @default(cuid())
+  supplierId     String
+  productSku     String
+  submittedValues Json                    @default("{}")
+  status         SupplierSubmissionStatus @default(pending_review)
+  reviewedById   String?
+  reviewNote     String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  reviewedBy User?    @relation("SubmissionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([supplierId, status])
+}
+
+// ─── Phase 5: Syndication ───────────────────────────────────
+
+model SyndicationRule {
+  id             String @id @default(cuid())
+  channelId      String
+  requireEnabled Boolean @default(true)
+  minCompleteness Int    @default(95)
+  filter         Json    @default("{}")
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+}
+
+model SyndicationLog {
+  id             String            @id @default(cuid())
+  organizationId String
+  channelId      String
+  productSku     String
+  action         SyndicationAction
+  status         String
+  responsePayload Json?
+  createdAt      DateTime          @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channel      Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, channelId])
+}
+
+model ProductChannelSync {
+  id         String     @id @default(cuid())
+  productId  String
+  channelId  String
+  status     SyncStatus @default(pending)
+  lastSyncAt DateTime?
+  lastError  String?
+  externalId String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, channelId])
+}
+
+// ─── Phase 6: AI ────────────────────────────────────────────
+
+model AiSuggestion {
+  id             String   @id @default(cuid())
+  organizationId String
+  productId      String?
+  attributeCode  String?
+  suggestedValue Json
+  confidence     String
+  confidenceScore Float?
+  status         String   @default("pending")
+  source         String
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+}
+
+model AiUsageLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  operation      String
+  tokensIn       Int      @default(0)
+  tokensOut      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model AiConversation {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?
+  messages       Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feedback     AiFeedback[]
+}
+
+model AiFeedback {
+  id             String  @id @default(cuid())
+  conversationId String
+  userId         String?
+  rating         Int
+  note           String?
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model QualityFinding {
+  id             String   @id @default(cuid())
+  organizationId String
+  category       String
+  severity       String
+  title          String
+  description    String
+  entityType     String?
+  entityId       String?
+  fixAction      Json?
+  resolved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, resolved])
+}
+
+model MarketSignal {
+  id             String   @id @default(cuid())
+  organizationId String
+  sku            String
+  signalType     String
+  value          Float
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, sku])
+}
