@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "pnpm build && PORT=3100 node --watch --watch-path=./dist dist/main.js",
-    "dev:tsx": "PORT=3100 tsx watch --clear-screen=false src/main.ts",
+    "dev": "pnpm build && PORT=3200 node --watch --watch-path=./dist dist/main.js",
+    "dev:tsx": "PORT=3200 tsx watch --clear-screen=false src/main.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",

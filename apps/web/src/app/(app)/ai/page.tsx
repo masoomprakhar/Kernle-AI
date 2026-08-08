@@ -384,7 +384,7 @@ export default function AiPage() {
             ))}
           </div>
 
-          {[...conflictGroups.entries()].map(([gid, group]) => (
+          {Array.from(conflictGroups.entries()).map(([gid, group]) => (
             <Card key={gid} className="border-amber-300/80">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
@@ -395,7 +395,7 @@ export default function AiPage() {
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
-                {group.map((s) => (
+                {group.map((s: Suggestion) => (
                   <div
                     key={s.id}
                     className="rounded-md border px-3 py-2 text-sm"

@@ -16,7 +16,8 @@
     "db:push": "pnpm --filter @kernle/db push",
     "smoke": "node scripts/smoke.mjs",
     "load:intelligence": "node scripts/load-intelligence.mjs",
-    "e2e:intelligence": "node scripts/e2e-intelligence.mjs"
+    "e2e:intelligence": "node scripts/e2e-intelligence.mjs",
+    "probe:apis": "node scripts/probe-apis.mjs"
   },
   "engines": {
     "node": ">=20"

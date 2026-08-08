@@ -41,7 +41,7 @@ function CompareInner() {
   }, [search]);
 
   const codes = data
-    ? [...new Set(data.products.flatMap((p) => Object.keys(p.values || {})))].sort()
+    ? Array.from(new Set(data.products.flatMap((p) => Object.keys(p.values || {})))).sort()
     : [];
   const diffSet = new Set((data?.differingFields || []).map((d) => d.code));
 

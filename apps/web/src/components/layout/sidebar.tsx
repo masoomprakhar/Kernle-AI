@@ -42,7 +42,7 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-hairline bg-canvas">
       <div className="flex h-16 items-center px-5">
-        <Link href="/dashboard" className="font-display text-title-sm font-semibold text-ink">
+        <Link href="/dashboard" className="font-display text-title-sm font-bold text-ink">
           Kernle AI
         </Link>
       </div>
