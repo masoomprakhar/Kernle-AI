@@ -12,15 +12,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { CompletenessService } from '../pim/completeness.service';
-import { QueueService } from '../queues/queue.service';
+import { newCorrelationId, QueueService } from '../queues/queue.service';
 import { StorageService } from '../dam/storage.service';
 import { fetchUrlContent } from './url-content';
 import { attributesForExtraction } from './extract-logic';
 import { extractWithConflicts } from './conflict';
 import { buildExplanation, type ExplanationType } from './explanation';
 import { runSelfCheck } from './self-check';
+import {
+  attributeCodesTiedToSource,
+  estimateExtractionJobUnits,
+  scopeAttributeCodes,
+} from './incremental';
+import { EXTRACT_QUEUE } from './queues';
 
-const EXTRACT_QUEUE = 'ai.source_extract';
+export { EXTRACT_QUEUE, FILL_QUEUE } from './queues';
 
 @Injectable()
 export class IntelligenceService implements OnModuleInit {
@@ -43,11 +49,14 @@ export class IntelligenceService implements OnModuleInit {
         productId: string;
         familyId: string;
         sourceDocumentIds: string[];
+        onlyAttributeCodes?: string[];
+        correlationId?: string;
         _alreadyRan?: boolean;
       };
       if (payload._alreadyRan) return;
       await this.runExtraction(payload);
     });
+
   }
 
   private useMock() {
@@ -301,22 +310,25 @@ export class IntelligenceService implements OnModuleInit {
       data: { productId },
     });
 
+    const correlationId = newCorrelationId();
     const jobPayload = {
       organizationId,
       actorId,
       productId: productId!,
       familyId: family.id,
       sourceDocumentIds: input.sourceDocumentIds,
+      correlationId,
+      jobType: 'extract.interactive',
     };
 
-    // Always extract inline for responsive wizard UX. When BullMQ is connected,
-    // also record a no-op job (worker skips via _alreadyRan).
-    await this.runExtraction(jobPayload);
-    const job = await this.queues.enqueue(
-      EXTRACT_QUEUE,
-      { ...jobPayload, _alreadyRan: true },
-      { awaitInline: true },
-    );
+    // Interactive: high priority + await so the from-source wizard stays responsive.
+    const job = await this.queues.enqueue(EXTRACT_QUEUE, jobPayload, {
+      awaitInline: true,
+      priority: QueueService.priorities.interactive,
+      organizationId,
+      correlationId,
+      jobType: 'extract.interactive',
+    });
 
     await this.audit.log({
       organizationId,
@@ -324,13 +336,109 @@ export class IntelligenceService implements OnModuleInit {
       action: 'intelligence.extract_enqueue',
       entityType: 'Product',
       entityId: productId,
-      after: { sourceDocumentIds: input.sourceDocumentIds, job },
+      after: { sourceDocumentIds: input.sourceDocumentIds, job, correlationId },
     });
 
     return {
       productId,
       queued: true,
       queue: EXTRACT_QUEUE,
+      job,
+      correlationId,
+      autoCommitted: false,
+    };
+  }
+
+  /**
+   * Incremental reprocess: when a SourceDocument is updated, only re-extract
+   * attributes previously tied to that document (plus still-empty attributes
+   * if none were tied yet).
+   */
+  async reprocessSourceDocument(
+    organizationId: string,
+    actorId: string,
+    sourceDocumentId: string,
+  ) {
+    const doc = await this.prisma.sourceDocument.findFirst({
+      where: { id: sourceDocumentId, organizationId },
+    });
+    if (!doc) throw new NotFoundException('Source document not found');
+    if (!doc.productId) {
+      throw new BadRequestException('Source document is not linked to a product');
+    }
+
+    const product = await this.prisma.product.findFirst({
+      where: { id: doc.productId, organizationId },
+    });
+    if (!product?.familyId) throw new BadRequestException('Product has no family');
+
+    const prior = await this.prisma.aiSuggestion.findMany({
+      where: { organizationId, productId: product.id },
+      select: {
+        attributeCode: true,
+        sourceDocumentId: true,
+        status: true,
+        explanation: true,
+      },
+    });
+    const tied = attributeCodesTiedToSource(prior, sourceDocumentId);
+    const onlyAttributeCodes = tied.length ? tied : undefined;
+
+    const estimate = estimateExtractionJobUnits({
+      attributeCodes: tied.length
+        ? tied
+        : (
+            await this.prisma.family.findFirst({
+              where: { id: product.familyId },
+              include: { attributes: { include: { attribute: true } } },
+            })
+          )?.attributes.map((a) => a.attribute.code) || [],
+      onlyAttributeCodes,
+      sourceCount: 1,
+    });
+
+    const correlationId = newCorrelationId();
+    const job = await this.queues.enqueue(
+      EXTRACT_QUEUE,
+      {
+        organizationId,
+        actorId,
+        productId: product.id,
+        familyId: product.familyId,
+        sourceDocumentIds: [sourceDocumentId],
+        onlyAttributeCodes,
+        correlationId,
+        jobType: 'extract.incremental',
+      },
+      {
+        awaitInline: true,
+        priority: QueueService.priorities.interactive,
+        organizationId,
+        correlationId,
+        jobType: 'extract.incremental',
+      },
+    );
+
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'intelligence.reprocess_source',
+      entityType: 'SourceDocument',
+      entityId: sourceDocumentId,
+      after: {
+        productId: product.id,
+        onlyAttributeCodes: onlyAttributeCodes || null,
+        estimate,
+        correlationId,
+        job,
+      },
+    });
+
+    return {
+      productId: product.id,
+      onlyAttributeCodes: onlyAttributeCodes || null,
+      estimate,
+      correlationId,
       job,
       autoCommitted: false,
     };
@@ -342,22 +450,38 @@ export class IntelligenceService implements OnModuleInit {
     productId: string;
     familyId: string;
     sourceDocumentIds: string[];
+    onlyAttributeCodes?: string[];
+    correlationId?: string;
   }) {
-    const { organizationId, actorId, productId, familyId, sourceDocumentIds } = payload;
+    const {
+      organizationId,
+      actorId,
+      productId,
+      familyId,
+      sourceDocumentIds,
+      onlyAttributeCodes,
+      correlationId,
+    } = payload;
 
     const product = await this.prisma.product.findFirst({
       where: { id: productId, organizationId },
     });
     if (!product) {
-      this.logger.warn(`Extraction skipped — product ${productId} missing`);
-      return;
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'extract_skip_missing_product',
+          productId,
+          correlationId,
+        }),
+      );
+      return { created: 0, skippedAttributes: 0 };
     }
 
     const family = await this.prisma.family.findFirst({
       where: { id: familyId, organizationId },
       include: { attributes: { include: { attribute: true } } },
     });
-    if (!family) return;
+    if (!family) return { created: 0, skippedAttributes: 0 };
 
     const sources = await this.prisma.sourceDocument.findMany({
       where: { organizationId, id: { in: sourceDocumentIds } },
@@ -373,15 +497,22 @@ export class IntelligenceService implements OnModuleInit {
 
     const existingSuggestions = await this.prisma.aiSuggestion.findMany({
       where: { organizationId, productId },
-      select: { attributeCode: true, status: true, confidenceScore: true },
+      select: {
+        attributeCode: true,
+        status: true,
+        confidenceScore: true,
+        sourceDocumentId: true,
+        explanation: true,
+      },
     });
 
     const productValues = (product.values as Record<string, unknown>) || {};
-    const codes = attributesForExtraction(
+    const eligible = attributesForExtraction(
       attributes,
       productValues,
       existingSuggestions,
     );
+    const { toProcess: codes, skipped } = scopeAttributeCodes(eligible, onlyAttributeCodes);
 
     // Drop prior low-confidence / conflict pending rows for codes we will re-propose
     if (codes.length) {
@@ -487,13 +618,26 @@ export class IntelligenceService implements OnModuleInit {
       action: 'intelligence.extract_complete',
       entityType: 'Product',
       entityId: productId,
-      after: { suggestionCount: created.length, attributeCodes: codes },
+      after: {
+        suggestionCount: created.length,
+        attributeCodes: codes,
+        skippedAttributes: skipped,
+        correlationId: correlationId || null,
+        onlyAttributeCodes: onlyAttributeCodes || null,
+      },
     });
 
     this.logger.log(
-      `Extraction complete for product ${productId}: ${created.length} suggestions`,
+      JSON.stringify({
+        msg: 'extract_complete',
+        productId,
+        suggestionCount: created.length,
+        skippedAttributes: skipped.length,
+        correlationId,
+        organizationId,
+      }),
     );
-    return { suggestions: created };
+    return { suggestions: created, skippedAttributes: skipped.length };
   }
 
   private async assertProduct(organizationId: string, productId: string) {

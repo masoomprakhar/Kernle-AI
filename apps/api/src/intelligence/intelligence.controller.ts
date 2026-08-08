@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Param,
   Post,
   Query,
   UploadedFile,
@@ -92,5 +93,11 @@ export class IntelligenceController {
   @Roles('Contributor')
   extract(@CurrentUser() user: AuthUser, @Body() dto: ExtractDto) {
     return this.intelligence.startExtraction(org(user), user.id, dto);
+  }
+
+  @Post('sources/:id/reprocess')
+  @Roles('Contributor')
+  reprocessSource(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.intelligence.reprocessSourceDocument(org(user), user.id, id);
   }
 }

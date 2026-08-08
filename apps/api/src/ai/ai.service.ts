@@ -13,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { CompletenessService } from '../pim/completeness.service';
-import { QueueService } from '../queues/queue.service';
+import { newCorrelationId, QueueService } from '../queues/queue.service';
 import {
   applyValueMapping,
   differingFields,
@@ -31,8 +31,7 @@ import {
   type SuggestionExplanation,
 } from '../intelligence/explanation';
 import { runSelfCheck } from '../intelligence/self-check';
-
-const QUALITY_QUEUE = 'ai.quality_scan';
+import { FILL_QUEUE, QUALITY_QUEUE } from '../intelligence/queues';
 
 type ToolName = 'searchProducts' | 'getIncompleteProducts' | 'countByFamily';
 
@@ -50,8 +49,20 @@ export class AiService implements OnModuleInit {
 
   onModuleInit() {
     this.queues.registerHandler(QUALITY_QUEUE, async (data) => {
-      const { organizationId, actorId } = data as { organizationId: string; actorId?: string };
-      await this.runQualityScan(organizationId, actorId);
+      const { organizationId, actorId, familyId } = data as {
+        organizationId: string;
+        actorId?: string;
+        familyId?: string;
+      };
+      await this.runQualityScan(organizationId, actorId, familyId);
+    });
+    this.queues.registerHandler(FILL_QUEUE, async (data) => {
+      const { organizationId, actorId, productId } = data as {
+        organizationId: string;
+        actorId: string;
+        productId: string;
+      };
+      await this.suggestFill(organizationId, actorId, productId);
     });
   }
 
@@ -449,15 +460,16 @@ export class AiService implements OnModuleInit {
 
   /**
    * Batch enrichment across a family (or optional category filter).
-   * Returns suggestions grouped by explanation type for triage.
+   * Enqueues per-product fill jobs at batch priority (won't starve interactive work).
+   * For small limits, awaits completion so the UI can triage immediately.
    */
   async suggestFillBatch(
     organizationId: string,
     actorId: string,
-    input: { familyId: string; categoryId?: string; limit?: number },
+    input: { familyId: string; categoryId?: string; limit?: number; async?: boolean },
   ) {
     await this.billing.assertAiCredits(organizationId);
-    const take = Math.min(50, Math.max(1, input.limit || 20));
+    const take = Math.min(500, Math.max(1, input.limit || 20));
     const products = await this.prisma.product.findMany({
       where: {
         organizationId,
@@ -470,19 +482,65 @@ export class AiService implements OnModuleInit {
       select: { id: true, sku: true },
     });
 
-    const all: unknown[] = [];
+    const batchCorrelationId = newCorrelationId();
+    const jobs = [];
     for (const p of products) {
-      const res = await this.suggestFill(organizationId, actorId, p.id);
-      all.push(...res.suggestions);
+      const correlationId = newCorrelationId();
+      const job = await this.queues.enqueue(
+        FILL_QUEUE,
+        {
+          organizationId,
+          actorId,
+          productId: p.id,
+          correlationId,
+          batchCorrelationId,
+          jobType: 'fill.batch',
+        },
+        {
+          // Small batches await; large async batches return immediately.
+          awaitInline: !input.async && products.length <= 25,
+          priority: QueueService.priorities.batch,
+          organizationId,
+          correlationId,
+          jobType: 'fill.batch',
+        },
+      );
+      jobs.push({ productId: p.id, ...job });
     }
 
-    const groups = groupByExplanationType(all as Array<{ explanation?: unknown }>);
+    // When awaited, gather pending suggestions for triage grouping
+    if (!input.async && products.length <= 25) {
+      const pending = await this.prisma.aiSuggestion.findMany({
+        where: {
+          organizationId,
+          status: 'pending',
+          productId: { in: products.map((p) => p.id) },
+          source: { in: ['inferred_family', 'mock', 'anthropic'] },
+        },
+        take: 500,
+        orderBy: { createdAt: 'desc' },
+      });
+      const groups = groupByExplanationType(pending);
+      return {
+        productCount: products.length,
+        suggestionCount: pending.length,
+        jobsEnqueued: jobs.length,
+        batchCorrelationId,
+        groups: summarizeGroups(groups),
+        byType: groups,
+        autoSaved: false,
+        mode: 'awaited' as const,
+      };
+    }
+
     return {
       productCount: products.length,
-      suggestionCount: all.length,
-      groups: summarizeGroups(groups),
-      byType: groups,
+      suggestionCount: null,
+      jobsEnqueued: jobs.length,
+      batchCorrelationId,
+      groups: [],
       autoSaved: false,
+      mode: 'queued' as const,
     };
   }
 
@@ -738,17 +796,59 @@ export class AiService implements OnModuleInit {
 
   // ─── Quality scan ─────────────────────────────────────────
 
-  async enqueueQualityScan(organizationId: string, actorId: string) {
-    // Run inline so Insights refresh shows Phase-2 findings immediately.
-    const result = await this.runQualityScan(organizationId, actorId);
-    return { queued: false, ran: true, queue: QUALITY_QUEUE, ...result };
+  async enqueueQualityScan(
+    organizationId: string,
+    actorId: string,
+    opts?: { familyId?: string; async?: boolean },
+  ) {
+    const correlationId = newCorrelationId();
+    const priority = opts?.familyId
+      ? QueueService.priorities.interactive
+      : QueueService.priorities.batch;
+    const job = await this.queues.enqueue(
+      QUALITY_QUEUE,
+      {
+        organizationId,
+        actorId,
+        familyId: opts?.familyId,
+        correlationId,
+        jobType: opts?.familyId ? 'quality.family' : 'quality.full',
+      },
+      {
+        awaitInline: !opts?.async,
+        priority,
+        organizationId,
+        correlationId,
+        jobType: opts?.familyId ? 'quality.family' : 'quality.full',
+      },
+    );
+
+    if (opts?.async) {
+      return { queued: true, ran: false, queue: QUALITY_QUEUE, job, correlationId };
+    }
+
+    // When awaited, return latest open findings count for UX
+    const open = await this.prisma.qualityFinding.count({
+      where: { organizationId, resolved: false },
+    });
+    return {
+      queued: true,
+      ran: true,
+      queue: QUALITY_QUEUE,
+      job,
+      correlationId,
+      findingsCreated: open,
+    };
   }
 
-  async runQualityScan(organizationId: string, actorId?: string) {
+  async runQualityScan(organizationId: string, actorId?: string, familyId?: string) {
     const products = await this.prisma.product.findMany({
-      where: { organizationId },
+      where: {
+        organizationId,
+        ...(familyId ? { familyId } : {}),
+      },
       include: { assetLinks: { include: { asset: true } }, family: true },
-      take: 500,
+      take: familyId ? 2000 : 500,
     });
 
     const attributes = await this.prisma.attribute.findMany({
@@ -860,15 +960,36 @@ export class AiService implements OnModuleInit {
       findings.push(...findNearDuplicates(family.id, family.code, flatProducts));
     }
 
-    // Replace prior unresolved Phase-2 categories so re-scans don't pile up
-    await this.prisma.qualityFinding.updateMany({
-      where: {
-        organizationId,
-        resolved: false,
-        category: { in: ['consistency', 'near_duplicate'] },
-      },
-      data: { resolved: true },
-    });
+    // Replace prior unresolved Phase-2 categories so re-scans don't pile up.
+    // When scoped to a family, only resolve findings whose fixAction.familyId matches.
+    if (familyId) {
+      const open = await this.prisma.qualityFinding.findMany({
+        where: {
+          organizationId,
+          resolved: false,
+          category: { in: ['consistency', 'near_duplicate'] },
+        },
+        take: 500,
+      });
+      for (const f of open) {
+        const fix = f.fixAction as { familyId?: string } | null;
+        if (fix?.familyId === familyId) {
+          await this.prisma.qualityFinding.update({
+            where: { id: f.id },
+            data: { resolved: true },
+          });
+        }
+      }
+    } else {
+      await this.prisma.qualityFinding.updateMany({
+        where: {
+          organizationId,
+          resolved: false,
+          category: { in: ['consistency', 'near_duplicate'] },
+        },
+        data: { resolved: true },
+      });
+    }
 
     const created = [];
     for (const f of findings) {
@@ -1087,6 +1208,26 @@ export class AiService implements OnModuleInit {
       });
     }
 
+    const affectedFamilyIds = [
+      ...new Set(
+        products
+          .filter((p) => changes.some((c) => c.productId === p.id))
+          .map((p) => p.familyId)
+          .filter(Boolean) as string[],
+      ),
+    ];
+
+    // Incremental consistency: only re-check affected families (not whole catalog).
+    const familyJobs = [];
+    for (const fid of affectedFamilyIds) {
+      familyJobs.push(
+        await this.enqueueQualityScan(organizationId, actorId, {
+          familyId: fid,
+          async: true,
+        }),
+      );
+    }
+
     await this.audit.log({
       organizationId,
       actorId,
@@ -1094,11 +1235,31 @@ export class AiService implements OnModuleInit {
       entityType: 'Attribute',
       entityId: attributeId,
       before: { options: optionsBefore, mapping },
-      after: { changes, mappingRows },
+      after: { changes, mappingRows, affectedFamilyIds, familyJobs },
       metadata: { reversible: true },
     });
 
-    return { updatedProducts: changes.length, changes };
+    return {
+      updatedProducts: changes.length,
+      changes,
+      affectedFamilyIds,
+      consistencyJobs: familyJobs,
+    };
+  }
+
+  async jobMetrics() {
+    const snapshot = this.queues.getMetrics();
+    const depths = await this.queues.getQueueDepths();
+    return {
+      ...snapshot,
+      depths,
+      limits: {
+        orgConcurrency: Number(process.env.AI_ORG_JOB_CONCURRENCY || 2),
+        workerConcurrency: Number(process.env.AI_WORKER_CONCURRENCY || 4),
+        interactivePriority: QueueService.priorities.interactive,
+        batchPriority: QueueService.priorities.batch,
+      },
+    };
   }
 
   async compareProducts(organizationId: string, productIds: string[]) {

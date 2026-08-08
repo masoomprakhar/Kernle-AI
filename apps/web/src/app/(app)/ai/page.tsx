@@ -140,24 +140,33 @@ export default function AiPage() {
   const [batchFamilyId, setBatchFamilyId] = useState("");
   const [batchSummary, setBatchSummary] = useState<Array<{ key: string; count: number; label: string }>>([]);
   const [triageFilter, setTriageFilter] = useState<string>("all");
+  const [jobMetrics, setJobMetrics] = useState<{
+    totals?: { queued: number; running: number; completed: number; failed: number; rateLimitHits: number };
+    queues?: Record<string, { queued: number; running: number; completed: number; failed: number; avgDurationMs: number; rateLimitHits: number }>;
+    depthOverTime?: Array<{ ts: number; depth: number }>;
+    recent?: Array<{ queueName: string; status: string; correlationId?: string; durationMs?: number; at: number }>;
+    limits?: Record<string, number>;
+  } | null>(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [acting, setActing] = useState<string | null>(null);
 
   async function load() {
     try {
-      const [s, f, u, acc, fams] = await Promise.all([
+      const [s, f, u, acc, fams, metrics] = await Promise.all([
         api<Suggestion[]>("/ai/suggestions?status=pending").catch(() => []),
         api<Finding[]>("/ai/quality/findings?resolved=false").catch(() => []),
         api<Usage[]>("/ai/usage").catch(() => []),
         api<{ byAttribute: AccuracyRow[] }>("/ai/insights/accuracy").catch(() => ({ byAttribute: [] })),
         api<Family[]>("/pim/families").catch(() => []),
+        api<NonNullable<typeof jobMetrics>>("/ai/jobs/metrics").catch(() => null),
       ]);
       setSuggestions(Array.isArray(s) ? s : []);
       setFindings(Array.isArray(f) ? f : []);
       setUsage(Array.isArray(u) ? u : []);
       setAccuracy(acc?.byAttribute || []);
       setFamilies(Array.isArray(fams) ? fams : []);
+      setJobMetrics(metrics);
       if (fams?.[0] && !batchFamilyId) setBatchFamilyId(fams[0].id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load AI data");
@@ -310,6 +319,7 @@ export default function AiPage() {
           <TabsTrigger value="queue">Enrichment queue</TabsTrigger>
           <TabsTrigger value="batch">Batch</TabsTrigger>
           <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
           <TabsTrigger value="insights">Insights feed</TabsTrigger>
           <TabsTrigger value="usage">AI usage</TabsTrigger>
         </TabsList>
@@ -500,6 +510,81 @@ export default function AiPage() {
                 </Card>
               ))}
             </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="jobs" className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">
+              Queue depth, per-org rate limits, and recent AI jobs (Admin). Correlation ids span extract → validate → suggest.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => void load()}>
+              Refresh
+            </Button>
+          </div>
+          {jobMetrics?.totals && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {(
+                [
+                  ["Queued", jobMetrics.totals.queued],
+                  ["Running", jobMetrics.totals.running],
+                  ["Completed", jobMetrics.totals.completed],
+                  ["Failed", jobMetrics.totals.failed],
+                  ["Rate limits", jobMetrics.totals.rateLimitHits],
+                ] as const
+              ).map(([label, value]) => (
+                <Card key={label}>
+                  <CardContent className="py-4">
+                    <p className="text-2xl font-semibold">{value}</p>
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+          {jobMetrics?.limits && (
+            <p className="text-xs text-muted-foreground">
+              Org concurrency {jobMetrics.limits.orgConcurrency} · worker {jobMetrics.limits.workerConcurrency} ·
+              interactive priority {jobMetrics.limits.interactivePriority} · batch {jobMetrics.limits.batchPriority}
+            </p>
+          )}
+          {jobMetrics?.queues && (
+            <div className="space-y-2">
+              {Object.entries(jobMetrics.queues).map(([name, row]) => (
+                <Card key={name}>
+                  <CardContent className="flex flex-wrap justify-between gap-2 py-3 text-sm">
+                    <span className="font-medium">{name}</span>
+                    <span className="text-muted-foreground">
+                      q {row.queued} · run {row.running} · ok {row.completed} · fail {row.failed} · avg{" "}
+                      {row.avgDurationMs}ms
+                    </span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+          {jobMetrics?.recent && jobMetrics.recent.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Recent jobs</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-xs">
+                {jobMetrics.recent.slice(0, 15).map((j, i) => (
+                  <div key={`${j.at}-${i}`} className="flex flex-wrap justify-between gap-2 border-b border-border/50 py-1">
+                    <span>
+                      {j.queueName} · {j.status}
+                      {j.correlationId ? ` · ${j.correlationId.slice(0, 8)}` : ""}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {j.durationMs != null ? `${j.durationMs}ms` : "—"}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          {!jobMetrics && (
+            <p className="text-sm text-muted-foreground">Job metrics require an Admin role.</p>
           )}
         </TabsContent>
 

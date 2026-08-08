@@ -9,7 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -30,6 +30,12 @@ class SuggestFillBatchDto {
   @IsString() familyId!: string;
   @IsOptional() @IsString() categoryId?: string;
   @IsOptional() @IsNumber() limit?: number;
+  @IsOptional() @IsBoolean() async?: boolean;
+}
+
+class QualityScanDto {
+  @IsOptional() @IsString() familyId?: string;
+  @IsOptional() @IsBoolean() async?: boolean;
 }
 
 class AcceptSuggestionDto {
@@ -122,8 +128,15 @@ export class AiController {
 
   @Post('quality/scan')
   @Roles('CatalogManager')
-  qualityScan(@CurrentUser() user: AuthUser) {
-    return this.ai.enqueueQualityScan(org(user), user.id);
+  qualityScan(@CurrentUser() user: AuthUser, @Body() body: QualityScanDto = {}) {
+    return this.ai.enqueueQualityScan(org(user), user.id, body);
+  }
+
+  @Get('jobs/metrics')
+  @Roles('Admin')
+  jobMetrics(@CurrentUser() user: AuthUser) {
+    void org(user);
+    return this.ai.jobMetrics();
   }
 
   @Get('quality/findings')

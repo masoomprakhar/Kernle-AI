@@ -672,6 +672,48 @@ Failures never drop the suggestion — they set `needsAttention: true` and surfa
 
 UI: AI Insights → Enrichment queue (triage chips + Why this suggestion?), Batch, Accuracy tabs.
 
+## Product Intelligence — Phase 4 scaling
+
+Throughput/observability only — suggestion Accept semantics unchanged.
+
+### Queue model
+
+| Concern | Behavior |
+|---------|----------|
+| Queues | `ai.source_extract`, `ai.fill_batch`, `ai.quality_scan` (BullMQ when `REDIS_URL` set; in-process fallback otherwise) |
+| Priority | Interactive = `1` (single extract / source reprocess / family-scoped scan); Batch = `10` (fill batch, full catalog scan) |
+| Per-org concurrency | `AI_ORG_JOB_CONCURRENCY` (default **2**) — one tenant’s bulk run cannot starve another |
+| Worker concurrency | `AI_WORKER_CONCURRENCY` (default **4**) |
+| Correlation id | UUID on every job; structured logs `job_started` / `job_completed` / `job_failed` include `correlationId` + `organizationId` |
+
+### Incremental reprocessing
+
+- `POST /api/ai/sources/:id/reprocess` — re-extract only attributes tied to that `SourceDocument` (via `sourceDocumentId` / `explanation.sourceDocumentIds`); skips unaffected attributes (see `estimateExtractionJobUnits`).
+- Canonicalize apply → enqueues **family-scoped** quality scans for affected families only (not full catalog).
+
+### Observability
+
+- `GET /api/ai/jobs/metrics` (Admin) — queued/running/completed/failed per queue, avg duration, rate-limit hits, depth-over-time samples, recent jobs, configured limits.
+- Metrics are process-local (fine for single API node); Redis-backed counters can replace `JobMetricsRegistry` later.
+
+### Load verification
+
+```bash
+# Default ~500 SKUs, 90s drain budget
+pnpm load:intelligence
+
+# Brief-scale (slow; needs healthy API + Redis)
+LOAD_SKU_COUNT=50000 LOAD_BATCH_LIMIT=500 LOAD_BUDGET_MS=600000 pnpm load:intelligence
+```
+
+Asserts queue depth reaches 0 within budget and failed jobs stay below a small threshold.
+
+### Known limits
+
+- In-process queue has no cross-process fairness; use Redis/BullMQ in shared environments.
+- Full 50k seed is intentionally opt-in (DB write time dominates).
+- Metrics reset on process restart.
+
 ## Known Gaps
 
 - The exact hex values of pastel demo-grid surfaces (`{colors.signature-peach}`, `{colors.signature-mint}`, `{colors.signature-yellow}`, `{colors.signature-mustard}`) are inferred from screenshot pixel sampling. Some product launches may swap these surfaces seasonally.
