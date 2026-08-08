@@ -49,6 +49,8 @@ const TYPES = [
   "metric",
 ];
 
+type MappingRow = { oldValue: string; canonicalValue: string };
+
 export default function AttributesPage() {
   const [items, setItems] = useState<Attribute[]>([]);
   const [open, setOpen] = useState(false);
@@ -59,6 +61,11 @@ export default function AttributesPage() {
   const [localizable, setLocalizable] = useState(false);
   const [scopable, setScopable] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [canonOpen, setCanonOpen] = useState(false);
+  const [canonAttr, setCanonAttr] = useState<Attribute | null>(null);
+  const [mapping, setMapping] = useState<MappingRow[]>([]);
+  const [canonBusy, setCanonBusy] = useState(false);
 
   async function load() {
     try {
@@ -120,6 +127,43 @@ export default function AttributesPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
+    }
+  }
+
+  async function openCanonicalize(a: Attribute) {
+    setError("");
+    setInfo("");
+    setCanonBusy(true);
+    setCanonAttr(a);
+    try {
+      const res = await api<{ mapping: MappingRow[] }>(
+        `/ai/attributes/${a.id}/canonicalize/propose`,
+        { method: "POST" },
+      );
+      setMapping(res.mapping || []);
+      setCanonOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Propose failed");
+    } finally {
+      setCanonBusy(false);
+    }
+  }
+
+  async function applyCanonicalize() {
+    if (!canonAttr) return;
+    setCanonBusy(true);
+    setError("");
+    try {
+      const res = await api<{ updatedProducts: number }>(
+        `/ai/attributes/${canonAttr.id}/canonicalize/apply`,
+        { method: "POST", body: { mapping, updateAttributeOptions: true } },
+      );
+      setInfo(`Applied canonical mapping to ${res.updatedProducts} products`);
+      setCanonOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Apply failed");
+    } finally {
+      setCanonBusy(false);
     }
   }
 
@@ -188,6 +232,7 @@ export default function AttributesPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {info && <p className="text-sm text-emerald-700">{info}</p>}
 
       <div className="space-y-2">
         {items.map((a) => (
@@ -201,6 +246,16 @@ export default function AttributesPage() {
                 <Badge variant="outline">{a.type}</Badge>
                 {a.localizable && <Badge variant="secondary">locale</Badge>}
                 {a.scopable && <Badge variant="secondary">scope</Badge>}
+                {["select", "multiselect", "text"].includes(a.type) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={canonBusy}
+                    onClick={() => void openCanonicalize(a)}
+                  >
+                    Canonicalize
+                  </Button>
+                )}
                 <Button size="sm" variant="ghost" onClick={() => openEdit(a)}>
                   Edit
                 </Button>
@@ -210,6 +265,45 @@ export default function AttributesPage() {
         ))}
         {!items.length && <p className="text-sm text-muted-foreground">No attributes yet.</p>}
       </div>
+
+      <Dialog open={canonOpen} onOpenChange={setCanonOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              Propose canonical options{canonAttr ? ` — ${canonAttr.code}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Review the old → canonical mapping. Nothing is applied until you confirm.
+          </p>
+          <div className="max-h-80 space-y-2 overflow-y-auto">
+            {mapping.map((row, i) => (
+              <div key={`${row.oldValue}-${i}`} className="grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded border px-2 py-1.5 text-muted-foreground">{row.oldValue}</div>
+                <Input
+                  value={row.canonicalValue}
+                  onChange={(e) => {
+                    const next = [...mapping];
+                    next[i] = { ...row, canonicalValue: e.target.value };
+                    setMapping(next);
+                  }}
+                />
+              </div>
+            ))}
+            {!mapping.length && (
+              <p className="text-sm text-muted-foreground">No values found to canonicalize.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCanonOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={canonBusy || !mapping.length} onClick={() => void applyCanonicalize()}>
+              Apply mapping
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -33,6 +33,17 @@ class MarketSignalDto {
   @IsOptional() @IsObject() metadata?: object;
 }
 
+class CanonicalApplyDto {
+  @IsArray()
+  mapping!: Array<{ oldValue: string; canonicalValue: string }>;
+  @IsOptional()
+  updateAttributeOptions?: boolean;
+}
+
+class CompareDto {
+  @IsArray() @IsString({ each: true }) productIds!: string[];
+}
+
 function org(user: AuthUser) {
   if (!user.organizationId) throw new ForbiddenException('Organization context required');
   return user.organizationId;
@@ -98,6 +109,40 @@ export class AiController {
   @Roles('Contributor')
   resolveFinding(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.ai.resolveFinding(org(user), id);
+  }
+
+  @Post('quality/findings/:id/merge')
+  @Roles('CatalogManager')
+  mergeFinding(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.ai.mergeFindingToCanonical(org(user), user.id, id);
+  }
+
+  @Post('attributes/:id/canonicalize/propose')
+  @Roles('CatalogManager')
+  proposeCanonical(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.ai.proposeCanonicalization(org(user), user.id, id);
+  }
+
+  @Post('attributes/:id/canonicalize/apply')
+  @Roles('CatalogManager')
+  applyCanonical(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CanonicalApplyDto,
+  ) {
+    return this.ai.applyCanonicalization(
+      org(user),
+      user.id,
+      id,
+      dto.mapping,
+      dto.updateAttributeOptions !== false,
+    );
+  }
+
+  @Post('products/compare')
+  @Roles('Viewer')
+  compareProducts(@CurrentUser() user: AuthUser, @Body() dto: CompareDto) {
+    return this.ai.compareProducts(org(user), dto.productIds);
   }
 
   @Get('market-signals')

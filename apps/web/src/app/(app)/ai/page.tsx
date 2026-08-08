@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatDate } from "@/lib/utils";
@@ -12,27 +13,61 @@ import { Textarea } from "@/components/ui/textarea";
 
 type Suggestion = {
   id: string;
-  productId?: string;
-  attributeCode?: string;
-  proposedValue?: unknown;
-  status?: string;
+  productId?: string | null;
+  attributeCode?: string | null;
+  suggestedValue?: unknown;
+  confidence?: string;
+  source?: string;
+  explanation?: {
+    reason?: string;
+    conflict?: boolean;
+    conflictGroupId?: string | null;
+    notFound?: boolean;
+  } | null;
+  product?: { id: string; sku: string };
 };
 
 type Finding = {
   id: string;
   title?: string;
+  description?: string;
   message?: string;
   severity?: string;
+  category?: string;
   resolved?: boolean;
+  fixAction?: {
+    type?: string;
+    productIds?: string[];
+    mapping?: Record<string, string>;
+    canonical?: string;
+  } | null;
 };
 
 type Usage = {
   id?: string;
+  operation?: string;
   action?: string;
+  tokensIn?: number;
+  tokensOut?: number;
   tokens?: number;
   createdAt?: string;
-  model?: string;
 };
+
+function previewValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "object" && value && "not_found_in_source" in (value as object)) {
+    return "not found in source";
+  }
+  if (typeof value === "object" && value) {
+    const scoped = value as Record<string, Record<string, string>>;
+    const first = Object.values(scoped)[0];
+    if (first && typeof first === "object") {
+      const v = Object.values(first)[0];
+      if (v != null) return String(v);
+    }
+  }
+  return String(value);
+}
 
 export default function AiPage() {
   const [message, setMessage] = useState("");
@@ -44,6 +79,7 @@ export default function AiPage() {
   const [usage, setUsage] = useState<Usage[]>([]);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [acting, setActing] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -63,6 +99,23 @@ export default function AiPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  const conflictGroups = useMemo(() => {
+    const map = new Map<string, Suggestion[]>();
+    for (const s of suggestions) {
+      const gid = s.explanation?.conflictGroupId;
+      if (s.explanation?.conflict && gid) {
+        const list = map.get(gid) || [];
+        list.push(s);
+        map.set(gid, list);
+      }
+    }
+    return map;
+  }, [suggestions]);
+
+  const plainSuggestions = suggestions.filter(
+    (s) => !(s.explanation?.conflict && s.explanation?.conflictGroupId),
+  );
 
   async function ask() {
     const text = message.trim();
@@ -86,22 +139,41 @@ export default function AiPage() {
   }
 
   async function decide(id: string, action: "accept" | "reject") {
+    setActing(id);
     try {
       await api(`/ai/suggestions/${id}/${action}`, { method: "POST" });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActing(null);
     }
   }
 
   async function scan() {
     setInfo("");
     try {
-      await api("/ai/quality/scan", { method: "POST" });
-      setInfo("Quality scan enqueued");
+      const res = await api<{ findingsCreated?: number }>("/ai/quality/scan", { method: "POST" });
+      setInfo(`Quality scan complete — ${res.findingsCreated ?? "?"} findings`);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scan failed");
+    }
+  }
+
+  async function mergeFinding(id: string) {
+    setActing(id);
+    setError("");
+    try {
+      const res = await api<{ merged: number }>(`/ai/quality/findings/${id}/merge`, {
+        method: "POST",
+      });
+      setInfo(`Merged ${res.merged} product values to canonical`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Merge failed");
+    } finally {
+      setActing(null);
     }
   }
 
@@ -110,7 +182,9 @@ export default function AiPage() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-semibold">AI Insights</h1>
-          <p className="text-muted-foreground">Ask Kernle, review enrichment, track quality.</p>
+          <p className="text-muted-foreground">
+            Ask Kernle, resolve source conflicts, and keep catalog consistency.
+          </p>
         </div>
         <Button variant="outline" onClick={() => void scan()}>
           <Sparkles className="h-4 w-4" />
@@ -168,60 +242,154 @@ export default function AiPage() {
         </TabsContent>
 
         <TabsContent value="queue" className="space-y-3">
-          {suggestions.map((s) => (
-            <Card key={s.id}>
-              <CardContent className="flex flex-wrap items-start justify-between gap-3 py-4">
-                <div className="space-y-1 text-sm">
-                  <p className="font-medium">
-                    {s.attributeCode || "Suggestion"} · product {s.productId || "—"}
-                  </p>
-                  <pre className="overflow-auto rounded bg-muted p-2 text-xs">
-                    {JSON.stringify(s.proposedValue, null, 2)}
-                  </pre>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => void decide(s.id, "accept")}>
-                    Accept
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => void decide(s.id, "reject")}>
-                    Reject
-                  </Button>
-                </div>
+          {[...conflictGroups.entries()].map(([gid, group]) => (
+            <Card key={gid} className="border-amber-300/80">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">
+                  Conflict — choose one value for {group[0]?.attributeCode}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Sources disagree. Accepting one rejects the other candidates.
+                  {group[0]?.product && (
+                    <>
+                      {" "}
+                      <Link
+                        href={`/products/${group[0].product.id}`}
+                        className="underline underline-offset-2"
+                      >
+                        {group[0].product.sku}
+                      </Link>
+                    </>
+                  )}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {group.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium">{previewValue(s.suggestedValue)}</p>
+                      <p className="text-xs text-muted-foreground">{s.explanation?.reason}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={acting === s.id}
+                      onClick={() => void decide(s.id, "accept")}
+                    >
+                      Choose this
+                    </Button>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           ))}
+
+          {plainSuggestions.map((s) => {
+            const notFound = Boolean(s.explanation?.notFound);
+            return (
+              <Card key={s.id}>
+                <CardContent className="flex flex-wrap items-start justify-between gap-3 py-4">
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium">
+                      {s.attributeCode || "Suggestion"}
+                      {s.product ? (
+                        <>
+                          {" · "}
+                          <Link href={`/products/${s.product.id}`} className="underline underline-offset-2">
+                            {s.product.sku}
+                          </Link>
+                        </>
+                      ) : null}
+                    </p>
+                    <p className="text-muted-foreground">{previewValue(s.suggestedValue)}</p>
+                    {s.explanation?.reason && (
+                      <p className="text-xs text-muted-foreground">{s.explanation.reason}</p>
+                    )}
+                    <div className="flex gap-2">
+                      {s.confidence && <Badge variant="outline">{s.confidence}</Badge>}
+                      {s.source && <Badge variant="secondary">{s.source}</Badge>}
+                      {notFound && <Badge variant="danger">not found</Badge>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={acting === s.id || notFound}
+                      onClick={() => void decide(s.id, "accept")}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={acting === s.id}
+                      onClick={() => void decide(s.id, "reject")}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
           {!suggestions.length && (
             <p className="text-sm text-muted-foreground">No pending suggestions. AI never auto-commits.</p>
           )}
         </TabsContent>
 
         <TabsContent value="insights" className="space-y-3">
-          {findings.map((f) => (
-            <Card key={f.id}>
-              <CardContent className="flex items-start justify-between gap-3 py-4">
-                <div>
-                  <p className="font-medium">{f.title || f.message || "Finding"}</p>
-                  {f.message && f.title && (
-                    <p className="mt-1 text-sm text-muted-foreground">{f.message}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={f.severity === "high" ? "danger" : "warning"}>
-                    {f.severity || "info"}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() =>
-                      void api(`/ai/quality/findings/${f.id}/resolve`, { method: "POST" }).then(load)
-                    }
-                  >
-                    Resolve
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {findings.map((f) => {
+            const fix = f.fixAction;
+            const compareIds = fix?.type === "compare_products" ? fix.productIds || [] : [];
+            const canMerge = fix?.type === "merge_to_canonical";
+            return (
+              <Card key={f.id}>
+                <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <div className="mb-1 flex flex-wrap gap-2">
+                      {f.category && <Badge variant="secondary">{f.category}</Badge>}
+                      <Badge variant={f.severity === "high" ? "danger" : "outline"}>
+                        {f.severity || "info"}
+                      </Badge>
+                    </div>
+                    <p className="font-medium">{f.title || f.message || "Finding"}</p>
+                    {(f.description || f.message) && (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {f.description || f.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {canMerge && (
+                      <Button
+                        size="sm"
+                        disabled={acting === f.id}
+                        onClick={() => void mergeFinding(f.id)}
+                      >
+                        Merge to canonical
+                      </Button>
+                    )}
+                    {compareIds.length >= 2 && (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/products/compare?ids=${compareIds.join(",")}`}>Compare</Link>
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void api(`/ai/quality/findings/${f.id}/resolve`, { method: "POST" }).then(load)
+                      }
+                    >
+                      Resolve
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
           {!findings.length && <p className="text-sm text-muted-foreground">No open findings.</p>}
         </TabsContent>
 
@@ -229,11 +397,10 @@ export default function AiPage() {
           {usage.map((u, i) => (
             <Card key={u.id || i}>
               <CardContent className="flex justify-between py-3 text-sm">
-                <span>
-                  {u.action || "call"} {u.model ? `· ${u.model}` : ""}
-                </span>
+                <span>{u.operation || u.action || "call"}</span>
                 <span className="text-muted-foreground">
-                  {u.tokens ?? "—"} tokens · {formatDate(u.createdAt)}
+                  {(u.tokensIn ?? 0) + (u.tokensOut ?? 0) || u.tokens || "—"} tokens ·{" "}
+                  {formatDate(u.createdAt)}
                 </span>
               </CardContent>
             </Card>

@@ -594,6 +594,37 @@ Sources are retained after extraction so later phases can cite excerpts (explain
 
 `/products/new/from-source` → extract → `/products/[id]?fromSource=1` with inline pending review (and AI Insights for the org-wide queue).
 
+## Product Intelligence — Phase 2 consistency rules
+
+Accuracy checks never auto-resolve conflicting or inconsistent values. Humans Accept / merge; every merge writes an `AuditLog` with before/after for reversibility.
+
+### Cross-source conflicts (extraction)
+
+When two+ `SourceDocument`s yield different scalars for the same attribute:
+
+- Emit **one pending `AiSuggestion` per distinct candidate** (`source: source_conflict`)
+- `explanation.conflict = true`, shared `conflictGroupId`, `requiresHumanChoice = true`
+- Accepting one candidate rejects siblings in the group — never silently pick a winner
+
+### Catalog consistency rules (quality scan)
+
+Per **Family**, over enabled products:
+
+| Attribute types | Rule | Finding category | Fix action |
+|-----------------|------|------------------|------------|
+| `select`, `multiselect`, `text` | Near-duplicate option variants (casing, spacing, common abbreviations e.g. SS → stainless steel) | `consistency` | `merge_to_canonical` — one-click rewrite + audit |
+| `number`, `metric`, `text`, `price` | Mixed unit tokens across products (`kg` vs `lb`, `cm` vs `in`) | `consistency` | `unit_inconsistency` (flag only; no silent convert) |
+| any (token Jaccard ≥ 0.85) | Near-duplicate products in the same family | `near_duplicate` | `compare_products` → `/products/compare?ids=` |
+
+Re-scans resolve prior open `consistency` / `near_duplicate` findings before writing a fresh set.
+
+### Canonicalization (Catalog Manager)
+
+- `POST /api/ai/attributes/:id/canonicalize/propose` — deterministic grouping → mapping table (old → canonical)
+- `POST /api/ai/attributes/:id/canonicalize/apply` — apply mapping to product values (+ optional attribute options update), audit `consistency.canonicalize_apply`
+
+UI: Attributes → **Canonicalize**; AI Insights → merge / compare actions on findings.
+
 ## Known Gaps
 
 - The exact hex values of pastel demo-grid surfaces (`{colors.signature-peach}`, `{colors.signature-mint}`, `{colors.signature-yellow}`, `{colors.signature-mustard}`) are inferred from screenshot pixel sampling. Some product launches may swap these surfaces seasonally.

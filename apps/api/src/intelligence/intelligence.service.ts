@@ -15,11 +15,8 @@ import { CompletenessService } from '../pim/completeness.service';
 import { QueueService } from '../queues/queue.service';
 import { StorageService } from '../dam/storage.service';
 import { fetchUrlContent } from './url-content';
-import {
-  attributesForExtraction,
-  mockExtractFromSources,
-  type ProposedValue,
-} from './extract-logic';
+import { attributesForExtraction } from './extract-logic';
+import { extractWithConflicts } from './conflict';
 
 const EXTRACT_QUEUE = 'ai.source_extract';
 
@@ -381,7 +378,7 @@ export class IntelligenceService implements OnModuleInit {
       existingSuggestions,
     );
 
-    // Drop prior low-confidence pending rows for codes we will re-propose
+    // Drop prior low-confidence / conflict pending rows for codes we will re-propose
     if (codes.length) {
       await this.prisma.aiSuggestion.deleteMany({
         where: {
@@ -392,54 +389,53 @@ export class IntelligenceService implements OnModuleInit {
           OR: [
             { confidenceScore: null },
             { confidenceScore: { lt: 0.55 } },
+            { source: 'source_extraction' },
           ],
         },
       });
     }
 
-    const combinedText = sources
-      .map((s) => s.rawContent || '')
-      .filter(Boolean)
-      .join('\n\n---\n\n');
     const primarySourceId = sources[0]?.id;
-
-    let proposals: ProposedValue[];
-    if (this.useMock()) {
-      proposals = mockExtractFromSources(codes, attributes, combinedText, primarySourceId);
-    } else {
-      // Live path still uses deterministic extractor for Phase 1 (safe, no inventing).
-      // Anthropic-backed extraction can replace this later without changing the Accept gate.
-      proposals = mockExtractFromSources(codes, attributes, combinedText, primarySourceId);
-    }
+    const bundles = extractWithConflicts(
+      codes,
+      attributes,
+      sources.map((s) => ({ id: s.id, rawContent: s.rawContent })),
+    );
 
     const created = [];
-    for (const p of proposals) {
-      const explanation = {
-        reason: p.reason,
-        excerpt: p.excerpt || null,
-        notFound: p.notFound,
-        sourceDocumentIds: sourceDocumentIds,
-      };
+    for (const bundle of bundles) {
+      for (const p of bundle.candidates) {
+        const explanation = {
+          reason: p.reason,
+          excerpt: p.excerpt || null,
+          notFound: p.notFound,
+          sourceDocumentIds: sourceDocumentIds,
+          conflict: bundle.isConflict,
+          conflictGroupId: bundle.isConflict ? bundle.conflictGroupId : null,
+          requiresHumanChoice: bundle.isConflict,
+        };
 
-      const suggestedValue = p.notFound || !p.suggestedValue
-        ? ({ not_found_in_source: true } as Prisma.InputJsonValue)
-        : (p.suggestedValue as Prisma.InputJsonValue);
+        const suggestedValue =
+          p.notFound || !p.suggestedValue
+            ? ({ not_found_in_source: true } as Prisma.InputJsonValue)
+            : (p.suggestedValue as Prisma.InputJsonValue);
 
-      const row = await this.prisma.aiSuggestion.create({
-        data: {
-          organizationId,
-          productId,
-          attributeCode: p.attributeCode,
-          suggestedValue,
-          confidence: p.confidence,
-          confidenceScore: p.confidenceScore,
-          status: 'pending',
-          source: 'source_extraction',
-          sourceDocumentId: p.sourceDocumentId || primarySourceId,
-          explanation: explanation as Prisma.InputJsonValue,
-        },
-      });
-      created.push(row);
+        const row = await this.prisma.aiSuggestion.create({
+          data: {
+            organizationId,
+            productId,
+            attributeCode: p.attributeCode,
+            suggestedValue,
+            confidence: bundle.isConflict ? 'conflict' : p.confidence,
+            confidenceScore: p.confidenceScore,
+            status: 'pending',
+            source: bundle.isConflict ? 'source_conflict' : 'source_extraction',
+            sourceDocumentId: p.sourceDocumentId || primarySourceId,
+            explanation: explanation as Prisma.InputJsonValue,
+          },
+        });
+        created.push(row);
+      }
     }
 
     await this.billing.consumeAiCredits(organizationId, 1);

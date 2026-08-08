@@ -22,7 +22,13 @@ type Suggestion = {
   confidence?: string;
   confidenceScore?: number | null;
   source?: string;
-  explanation?: { reason?: string; excerpt?: string; notFound?: boolean } | null;
+  explanation?: {
+    reason?: string;
+    excerpt?: string;
+    notFound?: boolean;
+    conflict?: boolean;
+    conflictGroupId?: string | null;
+  } | null;
 };
 
 type Attr = {
@@ -284,17 +290,21 @@ export default function ProductDetailPage() {
                     typeof s.suggestedValue === "object" &&
                     "not_found_in_source" in (s.suggestedValue as object)),
               );
+              const isConflict = Boolean(s.explanation?.conflict);
               return (
                 <div
                   key={s.id}
-                  className="flex flex-col gap-2 rounded-md border border-border bg-background px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+                  className={`flex flex-col gap-2 rounded-md border bg-background px-3 py-3 sm:flex-row sm:items-start sm:justify-between ${
+                    isConflict ? "border-amber-300" : "border-border"
+                  }`}
                 >
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{s.attributeCode}</span>
                       <Badge variant="outline">{s.confidence || "—"}</Badge>
                       {s.source && <Badge variant="secondary">{s.source}</Badge>}
-                      {notFound && <Badge variant="destructive">not found</Badge>}
+                      {isConflict && <Badge variant="outline">conflict — pick one</Badge>}
+                      {notFound && <Badge variant="danger">not found</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground break-words">
                       {suggestionPreview(s.suggestedValue)}
@@ -309,7 +319,7 @@ export default function ProductDetailPage() {
                       disabled={resolvingId === s.id || notFound}
                       onClick={() => void resolveSuggestion(s.id, "accept")}
                     >
-                      Accept
+                      {isConflict ? "Choose this" : "Accept"}
                     </Button>
                     <Button
                       size="sm"

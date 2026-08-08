@@ -14,6 +14,16 @@ import { AuditService } from '../audit/audit.service';
 import { BillingService } from '../billing/billing.service';
 import { CompletenessService } from '../pim/completeness.service';
 import { QueueService } from '../queues/queue.service';
+import {
+  applyValueMapping,
+  differingFields,
+  findNearDuplicates,
+  findUnitInconsistencies,
+  findVariantInconsistencies,
+  flattenValue,
+  proposeCanonicalOptions,
+  type FlatProduct,
+} from '../intelligence/consistency';
 
 const QUALITY_QUEUE = 'ai.quality_scan';
 
@@ -381,13 +391,39 @@ export class AiService implements OnModuleInit {
       data: { status: 'accepted', resolvedAt: new Date() },
     });
 
+    // Conflict groups: accepting one candidate rejects the siblings (human chose).
+    const explanation = suggestion.explanation as { conflictGroupId?: string } | null;
+    if (explanation?.conflictGroupId) {
+      const siblings = await this.prisma.aiSuggestion.findMany({
+        where: {
+          organizationId,
+          productId: suggestion.productId,
+          status: 'pending',
+          id: { not: suggestionId },
+        },
+      });
+      for (const sib of siblings) {
+        const sibExp = sib.explanation as { conflictGroupId?: string } | null;
+        if (sibExp?.conflictGroupId === explanation.conflictGroupId) {
+          await this.prisma.aiSuggestion.update({
+            where: { id: sib.id },
+            data: { status: 'rejected', resolvedAt: new Date() },
+          });
+        }
+      }
+    }
+
     await this.audit.log({
       organizationId,
       actorId,
       action: 'ai.suggestion_accept',
       entityType: 'AiSuggestion',
       entityId: suggestionId,
-      after: { productId: product.id, attributeCode: suggestion.attributeCode },
+      after: {
+        productId: product.id,
+        attributeCode: suggestion.attributeCode,
+        conflictGroupId: explanation?.conflictGroupId || null,
+      },
     });
     return updated;
   }
@@ -432,8 +468,9 @@ export class AiService implements OnModuleInit {
   // ─── Quality scan ─────────────────────────────────────────
 
   async enqueueQualityScan(organizationId: string, actorId: string) {
-    await this.queues.enqueue(QUALITY_QUEUE, { organizationId, actorId });
-    return { queued: true, queue: QUALITY_QUEUE };
+    // Run inline so Insights refresh shows Phase-2 findings immediately.
+    const result = await this.runQualityScan(organizationId, actorId);
+    return { queued: false, ran: true, queue: QUALITY_QUEUE, ...result };
   }
 
   async runQualityScan(organizationId: string, actorId?: string) {
@@ -441,6 +478,10 @@ export class AiService implements OnModuleInit {
       where: { organizationId },
       include: { assetLinks: { include: { asset: true } }, family: true },
       take: 500,
+    });
+
+    const attributes = await this.prisma.attribute.findMany({
+      where: { organizationId, archived: false },
     });
 
     const findings: Array<{
@@ -500,7 +541,64 @@ export class AiService implements OnModuleInit {
       }
     }
 
-    // Clear prior unresolved scan findings of same categories (optional soft approach: just add)
+    // Phase 2: catalog-wide consistency + near-duplicates per family
+    const flatProducts: FlatProduct[] = products.map((p) => ({
+      id: p.id,
+      sku: p.sku,
+      familyId: p.familyId,
+      values: (p.values as Record<string, unknown>) || {},
+    }));
+    const familyMap = new Map<string, { id: string; code: string }>();
+    for (const p of products) {
+      if (p.familyId && p.family) {
+        familyMap.set(p.familyId, { id: p.familyId, code: p.family.code });
+      }
+    }
+
+    for (const family of familyMap.values()) {
+      for (const attr of attributes) {
+        const variant = findVariantInconsistencies(
+          family.id,
+          family.code,
+          {
+            id: attr.id,
+            code: attr.code,
+            type: attr.type,
+            unit: attr.unit,
+            options: attr.options,
+          },
+          flatProducts,
+        );
+        if (variant) findings.push(variant);
+
+        const units = findUnitInconsistencies(
+          family.id,
+          family.code,
+          {
+            id: attr.id,
+            code: attr.code,
+            type: attr.type,
+            unit: attr.unit,
+            options: attr.options,
+          },
+          flatProducts,
+        );
+        if (units) findings.push(units);
+      }
+
+      findings.push(...findNearDuplicates(family.id, family.code, flatProducts));
+    }
+
+    // Replace prior unresolved Phase-2 categories so re-scans don't pile up
+    await this.prisma.qualityFinding.updateMany({
+      where: {
+        organizationId,
+        resolved: false,
+        category: { in: ['consistency', 'near_duplicate'] },
+      },
+      data: { resolved: true },
+    });
+
     const created = [];
     for (const f of findings) {
       const row = await this.prisma.qualityFinding.create({
@@ -552,6 +650,224 @@ export class AiService implements OnModuleInit {
       where: { id },
       data: { resolved: true },
     });
+  }
+
+  /**
+   * One-click merge to canonical value from a consistency finding.
+   * Writes an audit entry with before/after product patches for reversibility.
+   */
+  async mergeFindingToCanonical(organizationId: string, actorId: string, findingId: string) {
+    const finding = await this.prisma.qualityFinding.findFirst({
+      where: { id: findingId, organizationId },
+    });
+    if (!finding) throw new NotFoundException('Finding not found');
+    const fix = finding.fixAction as {
+      type?: string;
+      attributeCode?: string;
+      familyId?: string;
+      mapping?: Record<string, string>;
+      canonical?: string;
+    } | null;
+    if (!fix || fix.type !== 'merge_to_canonical' || !fix.attributeCode || !fix.mapping) {
+      throw new BadRequestException('Finding does not support merge_to_canonical');
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        organizationId,
+        ...(fix.familyId ? { familyId: fix.familyId } : {}),
+      },
+    });
+
+    const changes: Array<{ productId: string; sku: string; before: string; after: string }> = [];
+    for (const p of products) {
+      const values = (p.values as Record<string, unknown>) || {};
+      const result = applyValueMapping(values, fix.attributeCode, fix.mapping);
+      if (!result.changed) continue;
+      await this.prisma.product.update({
+        where: { id: p.id },
+        data: { values: result.next as Prisma.InputJsonValue, updatedById: actorId },
+      });
+      await this.completeness.refreshProduct(p.id);
+      changes.push({
+        productId: p.id,
+        sku: p.sku,
+        before: result.before,
+        after: result.after,
+      });
+    }
+
+    await this.prisma.qualityFinding.update({
+      where: { id: findingId },
+      data: { resolved: true },
+    });
+
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'consistency.merge_to_canonical',
+      entityType: 'QualityFinding',
+      entityId: findingId,
+      before: { mapping: fix.mapping },
+      after: { canonical: fix.canonical, changes },
+      metadata: { reversible: true, attributeCode: fix.attributeCode },
+    });
+
+    return { merged: changes.length, changes, findingId };
+  }
+
+  async proposeCanonicalization(organizationId: string, actorId: string, attributeId: string) {
+    await this.billing.assertAiCredits(organizationId);
+    const attribute = await this.prisma.attribute.findFirst({
+      where: { id: attributeId, organizationId },
+    });
+    if (!attribute) throw new NotFoundException('Attribute not found');
+    if (!['select', 'multiselect', 'text'].includes(attribute.type)) {
+      throw new BadRequestException('Canonicalization supports select, multiselect, or text attributes');
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: { organizationId },
+      take: 1000,
+    });
+    const flat: FlatProduct[] = products.map((p) => ({
+      id: p.id,
+      sku: p.sku,
+      familyId: p.familyId,
+      values: (p.values as Record<string, unknown>) || {},
+    }));
+
+    const proposal = proposeCanonicalOptions(
+      {
+        id: attribute.id,
+        code: attribute.code,
+        type: attribute.type,
+        unit: attribute.unit,
+        options: attribute.options,
+      },
+      flat,
+    );
+
+    await this.logUsage(organizationId, this.useMock() ? 'canonicalize.propose.mock' : 'canonicalize.propose');
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'consistency.canonicalize_propose',
+      entityType: 'Attribute',
+      entityId: attributeId,
+      after: proposal,
+    });
+
+    return {
+      attributeId: attribute.id,
+      attributeCode: attribute.code,
+      mapping: proposal.mapping,
+      proposedOptions: proposal.proposedOptions,
+      autoApplied: false,
+    };
+  }
+
+  async applyCanonicalization(
+    organizationId: string,
+    actorId: string,
+    attributeId: string,
+    mappingRows: Array<{ oldValue: string; canonicalValue: string }>,
+    updateAttributeOptions = true,
+  ) {
+    const attribute = await this.prisma.attribute.findFirst({
+      where: { id: attributeId, organizationId },
+    });
+    if (!attribute) throw new NotFoundException('Attribute not found');
+    if (!mappingRows?.length) throw new BadRequestException('mapping required');
+
+    const mapping: Record<string, string> = {};
+    for (const row of mappingRows) {
+      if (row.oldValue && row.canonicalValue && row.oldValue !== row.canonicalValue) {
+        mapping[row.oldValue] = row.canonicalValue;
+      }
+    }
+
+    const products = await this.prisma.product.findMany({ where: { organizationId }, take: 2000 });
+    const changes: Array<{ productId: string; sku: string; before: string; after: string }> = [];
+    for (const p of products) {
+      const values = (p.values as Record<string, unknown>) || {};
+      const result = applyValueMapping(values, attribute.code, mapping);
+      if (!result.changed) continue;
+      await this.prisma.product.update({
+        where: { id: p.id },
+        data: { values: result.next as Prisma.InputJsonValue, updatedById: actorId },
+      });
+      await this.completeness.refreshProduct(p.id);
+      changes.push({
+        productId: p.id,
+        sku: p.sku,
+        before: result.before,
+        after: result.after,
+      });
+    }
+
+    let optionsBefore = attribute.options;
+    if (updateAttributeOptions) {
+      const proposed = [...new Set(mappingRows.map((m) => m.canonicalValue).filter(Boolean))];
+      const optionObjs = proposed.map((label) => ({ code: label, label: { en_US: label } }));
+      await this.prisma.attribute.update({
+        where: { id: attribute.id },
+        data: { options: optionObjs as Prisma.InputJsonValue },
+      });
+    }
+
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'consistency.canonicalize_apply',
+      entityType: 'Attribute',
+      entityId: attributeId,
+      before: { options: optionsBefore, mapping },
+      after: { changes, mappingRows },
+      metadata: { reversible: true },
+    });
+
+    return { updatedProducts: changes.length, changes };
+  }
+
+  async compareProducts(organizationId: string, productIds: string[]) {
+    if (!productIds?.length || productIds.length < 2) {
+      throw new BadRequestException('At least two productIds required');
+    }
+    const products = await this.prisma.product.findMany({
+      where: { organizationId, id: { in: productIds.slice(0, 5) } },
+      include: { family: { select: { id: true, code: true, label: true } } },
+    });
+    if (products.length < 2) throw new NotFoundException('Products not found');
+
+    const flat = products.map((p) => ({
+      id: p.id,
+      sku: p.sku,
+      familyId: p.familyId,
+      values: (p.values as Record<string, unknown>) || {},
+      family: p.family,
+    }));
+
+    const diffs = differingFields(
+      { id: flat[0].id, sku: flat[0].sku, familyId: flat[0].familyId, values: flat[0].values },
+      { id: flat[1].id, sku: flat[1].sku, familyId: flat[1].familyId, values: flat[1].values },
+    );
+
+    const allCodes = new Set<string>();
+    for (const p of flat) Object.keys(p.values).forEach((c) => allCodes.add(c));
+
+    return {
+      products: flat.map((p) => ({
+        id: p.id,
+        sku: p.sku,
+        familyId: p.familyId,
+        family: p.family,
+        values: Object.fromEntries(
+          [...allCodes].map((code) => [code, flattenValue(p.values[code])]),
+        ),
+      })),
+      differingFields: diffs,
+    };
   }
 
   // ─── Market signals ───────────────────────────────────────

@@ -9,7 +9,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo 'ok'",
-    "test": "tsx --test src/intelligence/*.test.ts"
+    "test": "tsx --test src/intelligence/*.test.ts src/intelligence/**/*.test.ts"
   },
   "dependencies": {
     "@kernle/db": "workspace:*",
