@@ -122,6 +122,9 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get marketSignal() {
     return this.client.marketSignal;
   }
+  get sourceDocument() {
+    return this.client.sourceDocument;
+  }
 
   get $transaction() {
     return this.client.$transaction.bind(this.client);

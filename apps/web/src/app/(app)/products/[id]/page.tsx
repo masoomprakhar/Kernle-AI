@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
@@ -13,6 +14,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+
+type Suggestion = {
+  id: string;
+  attributeCode?: string | null;
+  suggestedValue?: unknown;
+  confidence?: string;
+  confidenceScore?: number | null;
+  source?: string;
+  explanation?: { reason?: string; excerpt?: string; notFound?: boolean } | null;
+};
 
 type Attr = {
   id: string;
@@ -73,8 +84,25 @@ function readAttrValue(values: Record<string, unknown> | undefined, code: string
   return JSON.stringify(raw);
 }
 
+function suggestionPreview(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "object" && value && "not_found_in_source" in (value as object)) {
+    return "not found in source";
+  }
+  if (typeof value === "object" && value) {
+    const scoped = value as Record<string, Record<string, string>>;
+    const firstChannel = Object.values(scoped)[0];
+    if (firstChannel && typeof firstChannel === "object") {
+      const first = Object.values(firstChannel)[0];
+      if (first != null) return String(first);
+    }
+  }
+  return String(value);
+}
+
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
+  const [fromSource, setFromSource] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
@@ -84,6 +112,19 @@ export default function ProductDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  async function loadSuggestions() {
+    try {
+      const rows = await api<Suggestion[]>(
+        `/ai/suggestions?status=pending&productId=${params.id}`,
+      );
+      setSuggestions(rows || []);
+    } catch {
+      setSuggestions([]);
+    }
+  }
 
   async function load() {
     setError("");
@@ -103,15 +144,34 @@ export default function ProductDetailPage() {
         next[fa.attribute.code] = readAttrValue(p.values, fa.attribute.code);
       }
       setDraft(next);
+      await loadSuggestions();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load product");
     }
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setFromSource(new URLSearchParams(window.location.search).get("fromSource") === "1");
+    }
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  async function resolveSuggestion(id: string, action: "accept" | "reject") {
+    setResolvingId(id);
+    setError("");
+    setMessage("");
+    try {
+      await api(`/ai/suggestions/${id}/${action}`, { method: "POST" });
+      setMessage(action === "accept" ? "Suggestion accepted" : "Suggestion rejected");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to resolve suggestion");
+    } finally {
+      setResolvingId(null);
+    }
+  }
 
   const attrsByGroup = useMemo(() => {
     const attrs = (product?.family?.attributes || []).map((a) => a.attribute);
@@ -199,6 +259,73 @@ export default function ProductDetailPage() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {message && <p className="text-sm text-emerald-700 dark:text-emerald-300">{message}</p>}
+
+      {(fromSource || suggestions.length > 0) && (
+        <Card className="border-ink/15 bg-surface-soft/60">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">
+              {fromSource ? "Source extraction review" : "Pending AI suggestions"}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Proposed values are never written until you Accept.{" "}
+              <Link href="/ai" className="underline underline-offset-2">
+                Open AI Insights
+              </Link>
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!suggestions.length && (
+              <p className="text-sm text-muted-foreground">No pending suggestions for this product.</p>
+            )}
+            {suggestions.map((s) => {
+              const notFound = Boolean(
+                s.explanation?.notFound ||
+                  (s.suggestedValue &&
+                    typeof s.suggestedValue === "object" &&
+                    "not_found_in_source" in (s.suggestedValue as object)),
+              );
+              return (
+                <div
+                  key={s.id}
+                  className="flex flex-col gap-2 rounded-md border border-border bg-background px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{s.attributeCode}</span>
+                      <Badge variant="outline">{s.confidence || "—"}</Badge>
+                      {s.source && <Badge variant="secondary">{s.source}</Badge>}
+                      {notFound && <Badge variant="destructive">not found</Badge>}
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words">
+                      {suggestionPreview(s.suggestedValue)}
+                    </p>
+                    {s.explanation?.reason && (
+                      <p className="text-xs text-muted-foreground">{s.explanation.reason}</p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button
+                      size="sm"
+                      disabled={resolvingId === s.id || notFound}
+                      onClick={() => void resolveSuggestion(s.id, "accept")}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={resolvingId === s.id}
+                      onClick={() => void resolveSuggestion(s.id, "reject")}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <Tabs defaultValue="attributes">

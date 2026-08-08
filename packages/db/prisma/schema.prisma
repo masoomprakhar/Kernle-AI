@@ -143,6 +143,7 @@ model Organization {
   qualityFindings QualityFinding[]
   marketSignals  MarketSignal[]
   conversations  AiConversation[]
+  sourceDocuments SourceDocument[]
 }
 
 model User {
@@ -446,6 +447,7 @@ model Product {
   channelSyncs ProductChannelSync[]
   comments     ProductComment[]
   aiSuggestions AiSuggestion[]
+  sourceDocuments SourceDocument[]
 
   @@unique([organizationId, sku])
   @@index([organizationId, enabled])
@@ -678,25 +680,68 @@ model ProductChannelSync {
   @@unique([productId, channelId])
 }
 
+// ─── Product Intelligence: source ingestion ─────────────────
+
+enum SourceDocumentType {
+  url
+  pdf
+  text_paste
+  image
+}
+
+enum SourceDocumentStatus {
+  pending
+  parsed
+  failed
+}
+
+model SourceDocument {
+  id             String               @id @default(cuid())
+  organizationId String
+  productId      String?
+  type           SourceDocumentType
+  /// Original URL, paste body, or extracted text for evidence trail
+  rawContent     String?              @db.Text
+  storageKey     String?
+  filename       String?
+  fetchedAt      DateTime?
+  status         SourceDocumentStatus @default(pending)
+  errorMessage   String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  suggestions  AiSuggestion[]
+
+  @@index([organizationId, productId])
+  @@index([organizationId, status])
+}
+
 // ─── Phase 6: AI ────────────────────────────────────────────
 
 model AiSuggestion {
-  id             String   @id @default(cuid())
-  organizationId String
-  productId      String?
-  attributeCode  String?
-  suggestedValue Json
-  confidence     String
-  confidenceScore Float?
-  status         String   @default("pending")
-  source         String
-  createdAt      DateTime @default(now())
-  resolvedAt     DateTime?
+  id               String   @id @default(cuid())
+  organizationId   String
+  productId        String?
+  attributeCode    String?
+  suggestedValue   Json
+  confidence       String
+  confidenceScore  Float?
+  status           String   @default("pending")
+  source           String
+  sourceDocumentId String?
+  /// Structured explainability: { reason, excerpt, notFound?, sourceDocumentIds? }
+  explanation      Json?
+  createdAt        DateTime @default(now())
+  resolvedAt       DateTime?
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  product      Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product        Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sourceDocument SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
+  @@index([sourceDocumentId])
 }
 
 model AiUsageLog {

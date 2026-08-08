@@ -27,6 +27,7 @@ const TENANT_MODELS = new Set([
   'AiConversation',
   'QualityFinding',
   'MarketSignal',
+  'SourceDocument',
 ]);
 
 function modelHasOrgId(model: string | undefined): boolean {

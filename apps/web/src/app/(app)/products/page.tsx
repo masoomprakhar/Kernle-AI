@@ -102,6 +102,10 @@ export default function ProductsPage() {
           <h1 className="font-display text-3xl font-semibold">Products</h1>
           <p className="text-muted-foreground">{total} in catalog</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/products/new/from-source">From source</Link>
+          </Button>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -141,6 +145,7 @@ export default function ProductsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3">

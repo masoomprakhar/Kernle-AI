@@ -59,8 +59,12 @@ export class AiController {
 
   @Get('suggestions')
   @Roles('Viewer')
-  suggestions(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
-    return this.ai.listSuggestions(org(user), status || 'pending');
+  suggestions(
+    @CurrentUser() user: AuthUser,
+    @Query('status') status?: string,
+    @Query('productId') productId?: string,
+  ) {
+    return this.ai.listSuggestions(org(user), status || 'pending', productId);
   }
 
   @Post('suggestions/:id/accept')

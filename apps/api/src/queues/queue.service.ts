@@ -64,14 +64,27 @@ export class QueueService implements OnModuleDestroy {
     }
   }
 
-  async enqueue(queueName: string, data: unknown, opts?: { jobId?: string }) {
+  async enqueue(
+    queueName: string,
+    data: unknown,
+    opts?: { jobId?: string; /** Await handler when using in-process fallback */ awaitInline?: boolean },
+  ) {
     const handler = this.handlers.get(queueName);
     if (this.useInProcess || !this.bullConnection) {
-      setImmediate(() => {
-        Promise.resolve(handler?.(data)).catch((err) =>
-          this.logger.error(`In-process job ${queueName} failed: ${(err as Error).message}`),
-        );
-      });
+      if (opts?.awaitInline) {
+        try {
+          await Promise.resolve(handler?.(data));
+        } catch (err) {
+          this.logger.error(`In-process job ${queueName} failed: ${(err as Error).message}`);
+          throw err;
+        }
+      } else {
+        setImmediate(() => {
+          Promise.resolve(handler?.(data)).catch((err) =>
+            this.logger.error(`In-process job ${queueName} failed: ${(err as Error).message}`),
+          );
+        });
+      }
       return { id: opts?.jobId || `local-${Date.now()}`, mode: 'in-process' as const };
     }
 

@@ -354,6 +354,15 @@ export class AiService implements OnModuleInit {
       throw new BadRequestException('Suggestion missing product/attribute');
     }
 
+    const suggested = suggestion.suggestedValue as Record<string, unknown> | null;
+    if (
+      suggested &&
+      typeof suggested === 'object' &&
+      (suggested as { not_found_in_source?: boolean }).not_found_in_source === true
+    ) {
+      throw new BadRequestException('Cannot accept a not-found suggestion — reject it or provide a value manually');
+    }
+
     const product = await this.prisma.product.findFirst({
       where: { id: suggestion.productId, organizationId },
     });
@@ -402,12 +411,21 @@ export class AiService implements OnModuleInit {
     return updated;
   }
 
-  listSuggestions(organizationId: string, status = 'pending') {
+  listSuggestions(organizationId: string, status = 'pending', productId?: string) {
     return this.prisma.aiSuggestion.findMany({
-      where: { organizationId, status },
+      where: {
+        organizationId,
+        status,
+        ...(productId ? { productId } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { product: { select: { id: true, sku: true } } },
+      include: {
+        product: { select: { id: true, sku: true } },
+        sourceDocument: {
+          select: { id: true, type: true, filename: true, status: true },
+        },
+      },
     });
   }
 

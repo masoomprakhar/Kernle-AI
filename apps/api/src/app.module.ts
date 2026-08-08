@@ -13,6 +13,7 @@ import { ImportExportModule } from './import-export/import-export.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { SyndicationModule } from './syndication/syndication.module';
 import { AiModule } from './ai/ai.module';
+import { IntelligenceModule } from './intelligence/intelligence.module';
 import { BillingModule } from './billing/billing.module';
 import { AdminModule } from './admin/admin.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
@@ -35,6 +36,7 @@ import { QueueModule } from './queues/queue.module';
     SuppliersModule,
     SyndicationModule,
     AiModule,
+    IntelligenceModule,
     BillingModule,
     AdminModule,
   ],

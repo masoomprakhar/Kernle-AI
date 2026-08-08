@@ -544,6 +544,56 @@ Product UI screenshots inside demo-card grids retain native aspect ratios (typic
 6. Run `npx @google/design.md lint DESIGN.md` after edits — `broken-ref`, `contrast-ratio`, and `orphaned-tokens` warnings flag issues automatically.
 7. When in doubt about emphasis: bigger type before bolder type, signature surface card before solid accent.
 
+## Product Intelligence — SourceDocument & extraction contract
+
+Phase 1 of the Product Intelligence layer turns unstructured inputs into Accept-gated catalog proposals. UI for this flow lives under Products (“From source”) and reuses the existing AI suggestion review patterns — no parallel queue.
+
+### SourceDocument
+
+Tenant-scoped evidence trail linked to the product it produces (nullable until extract attaches it).
+
+| Field | Notes |
+|-------|--------|
+| `type` | `url` \| `pdf` \| `text_paste` \| `image` |
+| `rawContent` | Pasted text, fetched/extracted body, or mock/spec text for PDFs |
+| `storageKey` | Object-store key for PDF/image uploads |
+| `status` | `pending` → `parsed` \| `failed` |
+| `fetchedAt` | When URL/file content was resolved |
+
+Sources are retained after extraction so later phases can cite excerpts (explainability).
+
+### Extraction contract
+
+1. **Inputs:** one or more `SourceDocument` ids + target `Family` (+ optional existing `productId` / SKU).
+2. **Outputs:** pending `AiSuggestion` rows only — never direct writes to `Product.values`.
+3. **Honesty:** if a value cannot be found, suggestion uses `suggestedValue: { not_found_in_source: true }`, `confidence: none`, and `explanation.reason = "not_found_in_source"`. Accept is blocked for these rows.
+4. **Partial re-run:** when sources are added to an existing product, skip attributes that already have filled product values or accepted suggestions; only refill empty / low-confidence pending suggestions (`confidenceScore < 0.55`).
+5. **Explainability stub (Phase 1):** `AiSuggestion.explanation` JSON shape:
+
+```json
+{
+  "reason": "Extracted from source: \"Color: Trail Blue\"",
+  "excerpt": "Color: Trail Blue",
+  "notFound": false,
+  "sourceDocumentIds": ["..."]
+}
+```
+
+6. **Source marker:** `AiSuggestion.source = "source_extraction"` and optional `sourceDocumentId` FK.
+7. **AI_MOCK:** deterministic fixtures for URL (`example.com` / mock hosts), PDF/image uploads, and text paste — same Accept gate.
+
+### API surface
+
+- `POST /api/ai/sources` — `{ type, url | text, productId? }`
+- `POST /api/ai/sources/upload` — multipart PDF/image
+- `GET /api/ai/sources?productId=`
+- `POST /api/ai/extract` — `{ familyId, sourceDocumentIds[], productId?, sku? }` → draft product + suggestions
+- Existing `GET/POST /api/ai/suggestions…` for Accept / Reject
+
+### Web entry
+
+`/products/new/from-source` → extract → `/products/[id]?fromSource=1` with inline pending review (and AI Insights for the org-wide queue).
+
 ## Known Gaps
 
 - The exact hex values of pastel demo-grid surfaces (`{colors.signature-peach}`, `{colors.signature-mint}`, `{colors.signature-yellow}`, `{colors.signature-mustard}`) are inferred from screenshot pixel sampling. Some product launches may swap these surfaces seasonally.
