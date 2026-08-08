@@ -407,6 +407,7 @@ export class AiService implements OnModuleInit {
       where: { organizationId, status },
       orderBy: { createdAt: 'desc' },
       take: 100,
+      include: { product: { select: { id: true, sku: true } } },
     });
   }
 

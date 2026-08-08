@@ -1,0 +1,66 @@
+{
+  "CallerReference": "REPLACE_WITH_UNIQUE_STRING",
+  "Comment": "Kernle AI - HTTPS in front of ALB",
+  "Enabled": true,
+  "IsIPV6Enabled": true,
+  "HttpVersion": "http2and3",
+  "PriceClass": "PriceClass_200",
+  "Aliases": { "Quantity": 0 },
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "kernle-alb",
+        "DomainName": "kernle-alb-1829412433.ap-south-1.elb.amazonaws.com",
+        "CustomHeaders": { "Quantity": 0 },
+        "CustomOriginConfig": {
+          "HTTPPort": 80,
+          "HTTPSPort": 443,
+          "OriginProtocolPolicy": "http-only",
+          "OriginSslProtocols": { "Quantity": 1, "Items": ["TLSv1.2"] },
+          "OriginReadTimeout": 60,
+          "OriginKeepaliveTimeout": 5
+        },
+        "ConnectionAttempts": 3,
+        "ConnectionTimeout": 10,
+        "OriginShield": { "Enabled": false }
+      }
+    ]
+  },
+  "DefaultRootObject": "",
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "kernle-alb",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 7,
+      "Items": ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"],
+      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
+    },
+    "Compress": true,
+    "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+    "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac",
+    "SmoothStreaming": false,
+    "FieldLevelEncryptionId": "",
+    "TrustedSigners": { "Enabled": false, "Quantity": 0 },
+    "TrustedKeyGroups": { "Enabled": false, "Quantity": 0 },
+    "LambdaFunctionAssociations": { "Quantity": 0 },
+    "FunctionAssociations": { "Quantity": 0 }
+  },
+  "CacheBehaviors": { "Quantity": 0 },
+  "CustomErrorResponses": { "Quantity": 0 },
+  "Logging": {
+    "Enabled": false,
+    "IncludeCookies": false,
+    "Bucket": "",
+    "Prefix": ""
+  },
+  "WebACLId": "",
+  "Restrictions": {
+    "GeoRestriction": { "RestrictionType": "none", "Quantity": 0 }
+  },
+  "ViewerCertificate": {
+    "CloudFrontDefaultCertificate": true,
+    "MinimumProtocolVersion": "TLSv1.2_2021",
+    "CertificateSource": "cloudfront"
+  }
+}

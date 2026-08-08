@@ -1,4 +1,5 @@
 # Kernle API — NestJS (ECS Fargate ready)
+# Build for Fargate: docker build --platform linux/amd64 -f apps/api/Dockerfile .
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat openssl curl \
   && corepack enable \

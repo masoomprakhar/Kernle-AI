@@ -1,4 +1,5 @@
 # Kernle Web — Next.js standalone (ECS Fargate ready)
+# Build for Fargate: docker build --platform linux/amd64 -f apps/web/Dockerfile .
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat curl \
   && corepack enable \
