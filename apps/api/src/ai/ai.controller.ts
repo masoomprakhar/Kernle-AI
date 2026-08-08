@@ -110,6 +110,12 @@ export class AiController {
     return this.ai.accuracyInsights(org(user));
   }
 
+  @Get('insights/overview')
+  @Roles('Viewer')
+  overview(@CurrentUser() user: AuthUser, @Query('days') days?: string) {
+    return this.ai.intelligenceOverview(org(user), days ? Number(days) : 30);
+  }
+
   @Post('suggestions/:id/accept')
   @Roles('Contributor')
   accept(

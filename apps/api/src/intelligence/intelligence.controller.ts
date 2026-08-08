@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -35,6 +35,16 @@ class ExtractDto {
   @IsArray() @IsString({ each: true }) sourceDocumentIds!: string[];
   @IsOptional() @IsString() productId?: string;
   @IsOptional() @IsString() sku?: string;
+}
+
+class BulkIntelligenceRunDto {
+  @IsArray() @IsString({ each: true }) productIds!: string[];
+  @IsOptional() @IsString() sourceDocumentId?: string;
+  @IsOptional() @IsString() type?: string;
+  @IsOptional() @IsString() url?: string;
+  @IsOptional() @IsString() text?: string;
+  /** When true (default), enqueue Phase 4 batch jobs; when false, run inline per product. */
+  @IsOptional() @IsBoolean() async?: boolean;
 }
 
 function org(user: AuthUser) {
@@ -99,5 +109,11 @@ export class IntelligenceController {
   @Roles('Contributor')
   reprocessSource(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.intelligence.reprocessSourceDocument(org(user), user.id, id);
+  }
+
+  @Post('intelligence/bulk-run')
+  @Roles('CatalogManager')
+  bulkRun(@CurrentUser() user: AuthUser, @Body() dto: BulkIntelligenceRunDto) {
+    return this.intelligence.bulkIntelligenceRun(org(user), user.id, dto);
   }
 }

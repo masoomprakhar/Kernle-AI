@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
   Shuffle,
+  Sparkles,
   Tags,
   Truck,
   Layers,
@@ -21,6 +22,7 @@ import { useAuth } from "@/components/auth-provider";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/intelligence", label: "Intelligence", icon: Sparkles },
   { href: "/products", label: "Products", icon: Package },
   { href: "/categories", label: "Categories", icon: FolderTree },
   { href: "/attributes", label: "Attributes", icon: Tags },

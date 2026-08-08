@@ -75,19 +75,33 @@ export default function DashboardPage() {
   const [channels, setChannels] = useState<ChannelDash[]>([]);
   const [error, setError] = useState("");
 
+  const [intelligence, setIntelligence] = useState<{
+    productsFromSource: number;
+    pendingSuggestions: number;
+    findings: { outstanding: number; resolvedInPeriod: number };
+    avgSourceToAcceptMs: number | null;
+  } | null>(null);
+
   useEffect(() => {
     void (async () => {
       try {
-        const [p, f, s, c] = await Promise.all([
+        const [p, f, s, c, intel] = await Promise.all([
           api<ProductList>("/pim/products?pageSize=50"),
           api<Finding[]>("/ai/quality/findings?resolved=false").catch(() => []),
           api<Suggestion[]>("/ai/suggestions?status=pending").catch(() => []),
           api<ChannelDash[]>("/syndication/dashboard").catch(() => []),
+          api<{
+            productsFromSource: number;
+            pendingSuggestions: number;
+            findings: { outstanding: number; resolvedInPeriod: number };
+            avgSourceToAcceptMs: number | null;
+          }>("/ai/insights/overview?days=30").catch(() => null),
         ]);
         setProducts(p);
         setFindings(Array.isArray(f) ? f : []);
         setSuggestions(Array.isArray(s) ? s : []);
         setChannels(Array.isArray(c) ? c : []);
+        setIntelligence(intel);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load dashboard");
       }
@@ -169,6 +183,9 @@ export default function DashboardPage() {
           <Button asChild variant="secondary">
             <Link href="/products">View products</Link>
           </Button>
+          <Button asChild variant="outline">
+            <Link href="/intelligence">Product Intelligence</Link>
+          </Button>
           <Button asChild>
             <Link href="/ai">Open AI Insights</Link>
           </Button>
@@ -176,6 +193,48 @@ export default function DashboardPage() {
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {intelligence && (
+        <Card className="border-ink/10 bg-surface-soft/50">
+          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-2">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Product Intelligence
+              </CardTitle>
+              <CardDescription>
+                Source → extract → reconcile → Accept across the catalog (last 30 days).
+              </CardDescription>
+            </div>
+            <Link
+              href="/intelligence"
+              className="inline-flex items-center gap-1 text-sm font-medium text-link"
+            >
+              Open <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-muted-foreground">From source</p>
+              <p className="font-display text-2xl font-semibold">{intelligence.productsFromSource}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Pending review</p>
+              <p className="font-display text-2xl font-semibold">{intelligence.pendingSuggestions}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Findings open</p>
+              <p className="font-display text-2xl font-semibold">{intelligence.findings.outstanding}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Resolved in period</p>
+              <p className="font-display text-2xl font-semibold">
+                {intelligence.findings.resolvedInPeriod}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

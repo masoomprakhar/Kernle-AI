@@ -726,6 +726,131 @@ export class AiService implements OnModuleInit {
   /**
    * Read-only calibration: accept/reject/edit rates by attribute code (and type when known).
    */
+  /**
+   * Catalog-wide Product Intelligence health for the dashboard (Phase 5).
+   * Read-only aggregation over existing SourceDocument / suggestion / finding data.
+   */
+  async intelligenceOverview(organizationId: string, periodDays = 30) {
+    const days = Math.min(Math.max(Number(periodDays) || 30, 1), 365);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [
+      sourcesInPeriod,
+      productsTouched,
+      pendingSuggestions,
+      openFindings,
+      resolvedFindings,
+      acceptedFromSource,
+      accuracy,
+      grouped,
+    ] = await Promise.all([
+      this.prisma.sourceDocument.count({
+        where: { organizationId, createdAt: { gte: since } },
+      }),
+      this.prisma.sourceDocument.findMany({
+        where: {
+          organizationId,
+          productId: { not: null },
+          createdAt: { gte: since },
+        },
+        select: { productId: true },
+        distinct: ['productId'],
+      }),
+      this.prisma.aiSuggestion.count({
+        where: { organizationId, status: 'pending' },
+      }),
+      this.prisma.qualityFinding.count({
+        where: { organizationId, resolved: false },
+      }),
+      this.prisma.qualityFinding.count({
+        where: { organizationId, resolved: true, createdAt: { gte: since } },
+      }),
+      this.prisma.aiSuggestion.findMany({
+        where: {
+          organizationId,
+          status: 'accepted',
+          source: { in: ['source_extraction', 'source_conflict'] },
+          resolvedAt: { gte: since },
+          productId: { not: null },
+        },
+        select: {
+          productId: true,
+          resolvedAt: true,
+          createdAt: true,
+          sourceDocumentId: true,
+        },
+        take: 2000,
+        orderBy: { resolvedAt: 'desc' },
+      }),
+      this.accuracyInsights(organizationId),
+      this.listSuggestionsGrouped(organizationId, 'pending'),
+    ]);
+
+    // Average time from earliest linked source → first accept for that product in period.
+    const productIds = [
+      ...new Set(
+        acceptedFromSource
+          .map((s) => s.productId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ].slice(0, 200);
+
+    let avgSourceToAcceptMs: number | null = null;
+    let sampleSize = 0;
+    if (productIds.length) {
+      const firstSources = await this.prisma.sourceDocument.findMany({
+        where: { organizationId, productId: { in: productIds } },
+        select: { productId: true, createdAt: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      const firstByProduct = new Map<string, Date>();
+      for (const row of firstSources) {
+        if (!row.productId || firstByProduct.has(row.productId)) continue;
+        firstByProduct.set(row.productId, row.createdAt);
+      }
+      const firstAcceptByProduct = new Map<string, Date>();
+      for (const s of acceptedFromSource) {
+        if (!s.productId || !s.resolvedAt) continue;
+        const prev = firstAcceptByProduct.get(s.productId);
+        if (!prev || s.resolvedAt < prev) firstAcceptByProduct.set(s.productId, s.resolvedAt);
+      }
+      const deltas: number[] = [];
+      for (const [pid, acceptedAt] of firstAcceptByProduct) {
+        const sourceAt = firstByProduct.get(pid);
+        if (!sourceAt) continue;
+        const ms = acceptedAt.getTime() - sourceAt.getTime();
+        if (ms >= 0) deltas.push(ms);
+      }
+      sampleSize = deltas.length;
+      if (deltas.length) {
+        avgSourceToAcceptMs = Math.round(deltas.reduce((a, b) => a + b, 0) / deltas.length);
+      }
+    }
+
+    return {
+      periodDays: days,
+      productsFromSource: productsTouched.length,
+      sourcesIngested: sourcesInPeriod,
+      pendingSuggestions,
+      findings: {
+        outstanding: openFindings,
+        resolvedInPeriod: resolvedFindings,
+      },
+      avgSourceToAcceptMs,
+      avgSourceToAcceptSampleSize: sampleSize,
+      accuracy: {
+        sampleSize: accuracy.sampleSize,
+        byAttribute: (accuracy.byAttribute || []).slice(0, 8),
+      },
+      pendingByExplanation: grouped.groups || [],
+      links: {
+        workflow: '/products/new/from-source',
+        queue: '/ai',
+        bulk: '/products',
+      },
+    };
+  }
+
   async accuracyInsights(organizationId: string) {
     const resolved = await this.prisma.aiSuggestion.findMany({
       where: {

@@ -714,6 +714,27 @@ Asserts queue depth reaches 0 within budget and failed jobs stay below a small t
 - Full 50k seed is intentionally opt-in (DB write time dominates).
 - Metrics reset on process restart.
 
+## Product Intelligence — Phase 5 workflow & dashboard
+
+Phase 5 adds **no new suggestion types**. It connects Phases 1–4 into one operator path.
+
+| Surface | Role |
+|---------|------|
+| `/products/new/from-source` | Guided Setup → Sources → Extract → Review (Accept/conflicts/explanations) → Live |
+| `/intelligence` | Catalog overview: from-source volume, avg source→Accept, findings, accuracy, triage |
+| Dashboard card | Summary + link into `/intelligence` |
+| Products **Intelligence run** | Select SKUs → attach shared source (cloned per product) → `POST /api/ai/intelligence/bulk-run` |
+| Marketing `#product-intelligence` | Plain-language description of the Accept-gated pipeline |
+| `docs/PRODUCT_INTELLIGENCE.md` | Contributor walkthrough of the full pipeline |
+
+### Aggregation API
+
+`GET /api/ai/insights/overview?days=30` (Viewer) — read-only rollup over SourceDocuments, pending suggestions (grouped), findings, and Phase 3 accuracy samples. Does not change Accept semantics.
+
+### Bulk run
+
+`POST /api/ai/intelligence/bulk-run` (CatalogManager) — `{ productIds, sourceDocumentId? \| url/text, async? }`. Clones the template source onto each product, enqueues `extract.bulk` at batch priority (Phase 4), still lands in the same suggestion queue.
+
 ## Known Gaps
 
 - The exact hex values of pastel demo-grid surfaces (`{colors.signature-peach}`, `{colors.signature-mint}`, `{colors.signature-yellow}`, `{colors.signature-mustard}`) are inferred from screenshot pixel sampling. Some product launches may swap these surfaces seasonally.

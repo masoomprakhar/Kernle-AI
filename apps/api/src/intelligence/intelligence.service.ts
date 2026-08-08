@@ -444,6 +444,169 @@ export class IntelligenceService implements OnModuleInit {
     };
   }
 
+  /**
+   * Bulk intelligence run (Phase 5): attach a shared source template to many
+   * existing products (cloned per product) and enqueue Phase 1–3 extract jobs
+   * via Phase 4 batch priority / incremental scoping.
+   */
+  async bulkIntelligenceRun(
+    organizationId: string,
+    actorId: string,
+    input: {
+      productIds: string[];
+      sourceDocumentId?: string;
+      type?: string;
+      url?: string;
+      text?: string;
+      async?: boolean;
+    },
+  ) {
+    await this.billing.assertAiCredits(organizationId);
+
+    const productIds = [...new Set(input.productIds || [])].slice(0, 200);
+    if (!productIds.length) {
+      throw new BadRequestException('At least one productId is required');
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: { organizationId, id: { in: productIds } },
+      select: { id: true, sku: true, familyId: true },
+    });
+    if (products.length !== productIds.length) {
+      throw new BadRequestException('One or more products not found');
+    }
+
+    const missingFamily = products.filter((p) => !p.familyId);
+    if (missingFamily.length) {
+      throw new BadRequestException(
+        `Products missing family: ${missingFamily.map((p) => p.sku).join(', ')}`,
+      );
+    }
+
+    let template = input.sourceDocumentId
+      ? await this.prisma.sourceDocument.findFirst({
+          where: { id: input.sourceDocumentId, organizationId },
+        })
+      : null;
+
+    if (!template) {
+      const type = input.type || (input.url ? 'url' : 'text_paste');
+      if (type === 'url' || input.url) {
+        if (!input.url?.trim()) throw new BadRequestException('url is required');
+        template = await this.createUrlSource(organizationId, actorId, input.url.trim());
+      } else {
+        if (!input.text?.trim()) throw new BadRequestException('text is required');
+        template = await this.createTextSource(organizationId, actorId, input.text.trim());
+      }
+    }
+
+    if (template.status === SourceDocumentStatus.failed) {
+      throw new BadRequestException(
+        template.errorMessage || 'Template source document failed to parse',
+      );
+    }
+
+    const batchCorrelationId = newCorrelationId();
+    const awaitInline = input.async === false;
+    const jobs: Array<{
+      productId: string;
+      sourceDocumentId: string;
+      correlationId: string;
+      job: unknown;
+      onlyAttributeCodes: string[] | null;
+    }> = [];
+
+    for (const product of products) {
+      const clone = await this.prisma.sourceDocument.create({
+        data: {
+          organizationId,
+          productId: product.id,
+          type: template.type,
+          rawContent: template.rawContent,
+          storageKey: template.storageKey,
+          filename: template.filename,
+          fetchedAt: template.fetchedAt || new Date(),
+          status: template.status,
+          errorMessage: template.errorMessage,
+        },
+      });
+
+      const prior = await this.prisma.aiSuggestion.findMany({
+        where: { organizationId, productId: product.id },
+        select: {
+          attributeCode: true,
+          sourceDocumentId: true,
+          status: true,
+          explanation: true,
+        },
+      });
+      // Incremental: if prior suggestions exist for any source, only refill empty /
+      // low-confidence attributes by letting runExtraction's partial logic apply;
+      // when this is a brand-new clone with no ties, leave onlyAttributeCodes unset.
+      const tied = attributeCodesTiedToSource(prior, clone.id);
+      const onlyAttributeCodes = tied.length ? tied : undefined;
+
+      const correlationId = newCorrelationId();
+      const job = await this.queues.enqueue(
+        EXTRACT_QUEUE,
+        {
+          organizationId,
+          actorId,
+          productId: product.id,
+          familyId: product.familyId!,
+          sourceDocumentIds: [clone.id],
+          onlyAttributeCodes,
+          correlationId,
+          batchCorrelationId,
+          jobType: 'extract.bulk',
+        },
+        {
+          awaitInline,
+          priority: QueueService.priorities.batch,
+          organizationId,
+          correlationId,
+          jobType: 'extract.bulk',
+        },
+      );
+
+      jobs.push({
+        productId: product.id,
+        sourceDocumentId: clone.id,
+        correlationId,
+        job,
+        onlyAttributeCodes: onlyAttributeCodes || null,
+      });
+    }
+
+    const familyIds = [...new Set(products.map((p) => p.familyId!).filter(Boolean))];
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'intelligence.bulk_run',
+      entityType: 'Organization',
+      entityId: organizationId,
+      after: {
+        productCount: products.length,
+        templateSourceId: template.id,
+        familyIds,
+        batchCorrelationId,
+        jobsEnqueued: jobs.length,
+        mode: awaitInline ? 'inline' : 'queued',
+      },
+    });
+
+    return {
+      productCount: products.length,
+      jobsEnqueued: jobs.length,
+      batchCorrelationId,
+      templateSourceId: template.id,
+      familyIds,
+      jobs,
+      mode: awaitInline ? 'inline' : 'queued',
+      autoCommitted: false,
+    };
+  }
+
   async runExtraction(payload: {
     organizationId: string;
     actorId: string;

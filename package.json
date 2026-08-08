@@ -15,7 +15,8 @@
     "db:seed": "pnpm --filter @kernle/db seed",
     "db:push": "pnpm --filter @kernle/db push",
     "smoke": "node scripts/smoke.mjs",
-    "load:intelligence": "node scripts/load-intelligence.mjs"
+    "load:intelligence": "node scripts/load-intelligence.mjs",
+    "e2e:intelligence": "node scripts/e2e-intelligence.mjs"
   },
   "engines": {
     "node": ">=20"

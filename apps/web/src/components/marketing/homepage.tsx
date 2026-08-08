@@ -471,6 +471,36 @@ export function Homepage() {
               </div>
             ))}
           </div>
+
+          <div
+            id="product-intelligence"
+            className="mt-16 scroll-mt-20 border-t border-hairline pt-14"
+          >
+            <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Product Intelligence
+            </p>
+            <h3 className="mt-4 max-w-[22ch] font-display text-[28px] tracking-[-0.02em] text-ink md:text-[32px]">
+              Scattered facts in. Catalog-ready records out.
+            </h3>
+            <p className="mt-4 max-w-[54ch] text-[15px] leading-[1.65] text-body">
+              Drop a manufacturer URL, a spec sheet, or a pasted note. Kernle proposes structured
+              attributes, flags when sources disagree, explains every suggestion, and waits for your
+              Accept before anything becomes live product data.
+            </p>
+            <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Gather", "URLs, PDFs, and paste become retained evidence — not one-off uploads."],
+                ["Structure", "Family attributes fill as proposals with confidence, not silent guesses."],
+                ["Validate", "Conflicts and catalog rules surface before a human decides."],
+                ["Accept", "You choose what writes. Completeness and channel readiness update after."],
+              ].map(([title, body]) => (
+                <li key={title} className="rounded-md border border-hairline bg-canvas p-4">
+                  <p className="text-[14px] font-medium text-ink">{title}</p>
+                  <p className="mt-2 text-[13px] leading-[1.55] text-body">{body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </section>
 

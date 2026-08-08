@@ -278,8 +278,12 @@ export default function ProductDetailPage() {
             </CardTitle>
             <p className="text-sm text-muted-foreground">
               Proposed values are never written until you Accept.{" "}
+              <Link href="/intelligence" className="underline underline-offset-2">
+                Product Intelligence
+              </Link>
+              {" · "}
               <Link href="/ai" className="underline underline-offset-2">
-                Open AI Insights
+                AI Insights
               </Link>
             </p>
           </CardHeader>
