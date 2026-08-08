@@ -26,6 +26,16 @@ class SuggestFillDto {
   @IsOptional() @IsArray() @IsString({ each: true }) attributeCodes?: string[];
 }
 
+class SuggestFillBatchDto {
+  @IsString() familyId!: string;
+  @IsOptional() @IsString() categoryId?: string;
+  @IsOptional() @IsNumber() limit?: number;
+}
+
+class AcceptSuggestionDto {
+  @IsOptional() editedValue?: unknown;
+}
+
 class MarketSignalDto {
   @IsString() sku!: string;
   @IsString() signalType!: string;
@@ -68,20 +78,40 @@ export class AiController {
     return this.ai.suggestFill(org(user), user.id, dto.productId, dto.attributeCodes);
   }
 
+  @Post('fill/batch')
+  @Roles('CatalogManager')
+  suggestFillBatch(@CurrentUser() user: AuthUser, @Body() dto: SuggestFillBatchDto) {
+    return this.ai.suggestFillBatch(org(user), user.id, dto);
+  }
+
   @Get('suggestions')
   @Roles('Viewer')
   suggestions(
     @CurrentUser() user: AuthUser,
     @Query('status') status?: string,
     @Query('productId') productId?: string,
+    @Query('grouped') grouped?: string,
   ) {
+    if (grouped === 'true' || grouped === '1') {
+      return this.ai.listSuggestionsGrouped(org(user), status || 'pending');
+    }
     return this.ai.listSuggestions(org(user), status || 'pending', productId);
+  }
+
+  @Get('insights/accuracy')
+  @Roles('Viewer')
+  accuracy(@CurrentUser() user: AuthUser) {
+    return this.ai.accuracyInsights(org(user));
   }
 
   @Post('suggestions/:id/accept')
   @Roles('Contributor')
-  accept(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.ai.acceptSuggestion(org(user), user.id, id);
+  accept(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: AcceptSuggestionDto,
+  ) {
+    return this.ai.acceptSuggestion(org(user), user.id, id, dto?.editedValue);
   }
 
   @Post('suggestions/:id/reject')

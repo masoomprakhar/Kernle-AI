@@ -8,8 +8,29 @@ import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+
+type Explanation = {
+  reason?: string;
+  excerpt?: string | null;
+  originLabel?: string;
+  explanationType?: string;
+  conflict?: boolean;
+  conflictGroupId?: string | null;
+  notFound?: boolean;
+  needsAttention?: boolean;
+  selfCheckFailures?: Array<{ rule: string; message: string }>;
+  sourceDocumentIds?: string[];
+};
 
 type Suggestion = {
   id: string;
@@ -18,13 +39,9 @@ type Suggestion = {
   suggestedValue?: unknown;
   confidence?: string;
   source?: string;
-  explanation?: {
-    reason?: string;
-    conflict?: boolean;
-    conflictGroupId?: string | null;
-    notFound?: boolean;
-  } | null;
+  explanation?: Explanation | null;
   product?: { id: string; sku: string };
+  sourceDocument?: { id: string; type: string; filename?: string | null } | null;
 };
 
 type Finding = {
@@ -34,7 +51,6 @@ type Finding = {
   message?: string;
   severity?: string;
   category?: string;
-  resolved?: boolean;
   fixAction?: {
     type?: string;
     productIds?: string[];
@@ -53,6 +69,18 @@ type Usage = {
   createdAt?: string;
 };
 
+type AccuracyRow = {
+  attributeCode: string;
+  attributeType: string;
+  total: number;
+  summary: string;
+  acceptedAsIsRate: number;
+  editedAcceptRate: number;
+  rejectedRate: number;
+};
+
+type Family = { id: string; code: string };
+
 function previewValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "object" && value && "not_found_in_source" in (value as object)) {
@@ -69,6 +97,36 @@ function previewValue(value: unknown): string {
   return String(value);
 }
 
+function WhySuggestion({ exp, sourceDocument }: { exp?: Explanation | null; sourceDocument?: Suggestion["sourceDocument"] }) {
+  if (!exp?.reason && !exp?.selfCheckFailures?.length) return null;
+  return (
+    <details className="mt-2 rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-xs">
+      <summary className="cursor-pointer font-medium text-foreground">Why this suggestion?</summary>
+      <div className="mt-2 space-y-1 text-muted-foreground">
+        {exp.originLabel && <p>Origin: {exp.originLabel}</p>}
+        {exp.explanationType && <p>Type: {exp.explanationType}</p>}
+        {exp.reason && <p>{exp.reason}</p>}
+        {exp.excerpt && <p className="italic">Excerpt: “{exp.excerpt}”</p>}
+        {sourceDocument && (
+          <p>
+            Source: {sourceDocument.type}
+            {sourceDocument.filename ? ` · ${sourceDocument.filename}` : ""}
+          </p>
+        )}
+        {exp.selfCheckFailures && exp.selfCheckFailures.length > 0 && (
+          <ul className="list-disc pl-4 text-amber-800">
+            {exp.selfCheckFailures.map((f) => (
+              <li key={f.rule}>
+                <span className="font-medium">{f.rule}</span>: {f.message}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </details>
+  );
+}
+
 export default function AiPage() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState<Array<{ role: string; content: string }>>([]);
@@ -77,20 +135,30 @@ export default function AiPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [usage, setUsage] = useState<Usage[]>([]);
+  const [accuracy, setAccuracy] = useState<AccuracyRow[]>([]);
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [batchFamilyId, setBatchFamilyId] = useState("");
+  const [batchSummary, setBatchSummary] = useState<Array<{ key: string; count: number; label: string }>>([]);
+  const [triageFilter, setTriageFilter] = useState<string>("all");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [acting, setActing] = useState<string | null>(null);
 
   async function load() {
     try {
-      const [s, f, u] = await Promise.all([
+      const [s, f, u, acc, fams] = await Promise.all([
         api<Suggestion[]>("/ai/suggestions?status=pending").catch(() => []),
         api<Finding[]>("/ai/quality/findings?resolved=false").catch(() => []),
         api<Usage[]>("/ai/usage").catch(() => []),
+        api<{ byAttribute: AccuracyRow[] }>("/ai/insights/accuracy").catch(() => ({ byAttribute: [] })),
+        api<Family[]>("/pim/families").catch(() => []),
       ]);
       setSuggestions(Array.isArray(s) ? s : []);
       setFindings(Array.isArray(f) ? f : []);
       setUsage(Array.isArray(u) ? u : []);
+      setAccuracy(acc?.byAttribute || []);
+      setFamilies(Array.isArray(fams) ? fams : []);
+      if (fams?.[0] && !batchFamilyId) setBatchFamilyId(fams[0].id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load AI data");
     }
@@ -98,6 +166,7 @@ export default function AiPage() {
 
   useEffect(() => {
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const conflictGroups = useMemo(() => {
@@ -113,9 +182,27 @@ export default function AiPage() {
     return map;
   }, [suggestions]);
 
-  const plainSuggestions = suggestions.filter(
-    (s) => !(s.explanation?.conflict && s.explanation?.conflictGroupId),
-  );
+  const plainSuggestions = useMemo(() => {
+    let rows = suggestions.filter(
+      (s) => !(s.explanation?.conflict && s.explanation?.conflictGroupId),
+    );
+    if (triageFilter === "needs_attention") {
+      rows = rows.filter((s) => s.explanation?.needsAttention);
+    } else if (triageFilter !== "all") {
+      rows = rows.filter((s) => s.explanation?.explanationType === triageFilter);
+    }
+    return rows;
+  }, [suggestions, triageFilter]);
+
+  const triageCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: suggestions.length, needs_attention: 0 };
+    for (const s of suggestions) {
+      if (s.explanation?.needsAttention) counts.needs_attention += 1;
+      const t = s.explanation?.explanationType || "other";
+      counts[t] = (counts[t] || 0) + 1;
+    }
+    return counts;
+  }, [suggestions]);
 
   async function ask() {
     const text = message.trim();
@@ -141,7 +228,7 @@ export default function AiPage() {
   async function decide(id: string, action: "accept" | "reject") {
     setActing(id);
     try {
-      await api(`/ai/suggestions/${id}/${action}`, { method: "POST" });
+      await api(`/ai/suggestions/${id}/${action}`, { method: "POST", body: {} });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
@@ -158,6 +245,28 @@ export default function AiPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scan failed");
+    }
+  }
+
+  async function runBatch() {
+    if (!batchFamilyId) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await api<{
+        suggestionCount: number;
+        groups: Array<{ key: string; count: number; label: string }>;
+      }>("/ai/fill/batch", {
+        method: "POST",
+        body: { familyId: batchFamilyId, limit: 10 },
+      });
+      setBatchSummary(res.groups || []);
+      setInfo(`Batch enrichment created ${res.suggestionCount} suggestions`);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Batch failed");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -183,7 +292,7 @@ export default function AiPage() {
         <div>
           <h1 className="font-display text-3xl font-semibold">AI Insights</h1>
           <p className="text-muted-foreground">
-            Ask Kernle, resolve source conflicts, and keep catalog consistency.
+            Explainable enrichment, self-checked suggestions, and calibration.
           </p>
         </div>
         <Button variant="outline" onClick={() => void scan()}>
@@ -195,10 +304,12 @@ export default function AiPage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
       {info && <p className="text-sm text-emerald-700 dark:text-emerald-300">{info}</p>}
 
-      <Tabs defaultValue="ask">
+      <Tabs defaultValue="queue">
         <TabsList>
           <TabsTrigger value="ask">Ask Kernle</TabsTrigger>
           <TabsTrigger value="queue">Enrichment queue</TabsTrigger>
+          <TabsTrigger value="batch">Batch</TabsTrigger>
+          <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
           <TabsTrigger value="insights">Insights feed</TabsTrigger>
           <TabsTrigger value="usage">AI usage</TabsTrigger>
         </TabsList>
@@ -242,6 +353,27 @@ export default function AiPage() {
         </TabsContent>
 
         <TabsContent value="queue" className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["all", "All"],
+              ["needs_attention", "Needs attention"],
+              ["source_extract", "From sources"],
+              ["inferred_family", "Inferred"],
+              ["source_conflict", "Conflicts"],
+              ["fill_stub", "Fill drafts"],
+            ].map(([key, label]) => (
+              <Button
+                key={key}
+                size="sm"
+                variant={triageFilter === key ? "default" : "outline"}
+                onClick={() => setTriageFilter(key)}
+              >
+                {label}
+                {typeof triageCounts[key] === "number" ? ` (${triageCounts[key]})` : ""}
+              </Button>
+            ))}
+          </div>
+
           {[...conflictGroups.entries()].map(([gid, group]) => (
             <Card key={gid} className="border-amber-300/80">
               <CardHeader className="pb-2">
@@ -250,36 +382,25 @@ export default function AiPage() {
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Sources disagree. Accepting one rejects the other candidates.
-                  {group[0]?.product && (
-                    <>
-                      {" "}
-                      <Link
-                        href={`/products/${group[0].product.id}`}
-                        className="underline underline-offset-2"
-                      >
-                        {group[0].product.sku}
-                      </Link>
-                    </>
-                  )}
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
                 {group.map((s) => (
                   <div
                     key={s.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                    className="rounded-md border px-3 py-2 text-sm"
                   >
-                    <div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium">{previewValue(s.suggestedValue)}</p>
-                      <p className="text-xs text-muted-foreground">{s.explanation?.reason}</p>
+                      <Button
+                        size="sm"
+                        disabled={acting === s.id}
+                        onClick={() => void decide(s.id, "accept")}
+                      >
+                        Choose this
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      disabled={acting === s.id}
-                      onClick={() => void decide(s.id, "accept")}
-                    >
-                      Choose this
-                    </Button>
+                    <WhySuggestion exp={s.explanation} sourceDocument={s.sourceDocument} />
                   </div>
                 ))}
               </CardContent>
@@ -288,10 +409,11 @@ export default function AiPage() {
 
           {plainSuggestions.map((s) => {
             const notFound = Boolean(s.explanation?.notFound);
+            const needsAttention = Boolean(s.explanation?.needsAttention);
             return (
-              <Card key={s.id}>
+              <Card key={s.id} className={needsAttention ? "border-amber-300/80" : undefined}>
                 <CardContent className="flex flex-wrap items-start justify-between gap-3 py-4">
-                  <div className="space-y-1 text-sm">
+                  <div className="min-w-0 flex-1 space-y-1 text-sm">
                     <p className="font-medium">
                       {s.attributeCode || "Suggestion"}
                       {s.product ? (
@@ -304,14 +426,13 @@ export default function AiPage() {
                       ) : null}
                     </p>
                     <p className="text-muted-foreground">{previewValue(s.suggestedValue)}</p>
-                    {s.explanation?.reason && (
-                      <p className="text-xs text-muted-foreground">{s.explanation.reason}</p>
-                    )}
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       {s.confidence && <Badge variant="outline">{s.confidence}</Badge>}
                       {s.source && <Badge variant="secondary">{s.source}</Badge>}
+                      {needsAttention && <Badge variant="warning">Needs attention</Badge>}
                       {notFound && <Badge variant="danger">not found</Badge>}
                     </div>
+                    <WhySuggestion exp={s.explanation} sourceDocument={s.sourceDocument} />
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -336,6 +457,77 @@ export default function AiPage() {
           })}
           {!suggestions.length && (
             <p className="text-sm text-muted-foreground">No pending suggestions. AI never auto-commits.</p>
+          )}
+        </TabsContent>
+
+        <TabsContent value="batch" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Batch enrichment</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Run fill across a family. Results are grouped by explanation type for triage.
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end gap-3">
+              <div className="space-y-2">
+                <Label>Family</Label>
+                <Select value={batchFamilyId} onValueChange={setBatchFamilyId}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Family" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {families.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button disabled={busy || !batchFamilyId} onClick={() => void runBatch()}>
+                {busy ? "Running…" : "Run batch (up to 10 products)"}
+              </Button>
+            </CardContent>
+          </Card>
+          {batchSummary.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {batchSummary.map((g) => (
+                <Card key={g.key}>
+                  <CardContent className="py-4">
+                    <p className="text-2xl font-semibold">{g.count}</p>
+                    <p className="text-sm text-muted-foreground">{g.label}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="accuracy" className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Read-only calibration from Accept / Edit-then-Accept / Reject outcomes. Not used for auto-tuning.
+          </p>
+          {accuracy.map((row) => (
+            <Card key={row.attributeCode}>
+              <CardContent className="space-y-2 py-4 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{row.attributeCode}</span>
+                  <Badge variant="outline">{row.attributeType}</Badge>
+                  <span className="text-muted-foreground">{row.total} outcomes</span>
+                </div>
+                <p className="text-muted-foreground">{row.summary}</p>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>As-is {Math.round(row.acceptedAsIsRate * 100)}%</div>
+                  <div>Edited {Math.round(row.editedAcceptRate * 100)}%</div>
+                  <div>Rejected {Math.round(row.rejectedRate * 100)}%</div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {!accuracy.length && (
+            <p className="text-sm text-muted-foreground">
+              Accept or reject suggestions to build accuracy history.
+            </p>
           )}
         </TabsContent>
 

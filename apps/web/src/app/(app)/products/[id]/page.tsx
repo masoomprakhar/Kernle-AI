@@ -25,9 +25,13 @@ type Suggestion = {
   explanation?: {
     reason?: string;
     excerpt?: string;
+    originLabel?: string;
+    explanationType?: string;
     notFound?: boolean;
     conflict?: boolean;
     conflictGroupId?: string | null;
+    needsAttention?: boolean;
+    selfCheckFailures?: Array<{ rule: string; message: string }>;
   } | null;
 };
 
@@ -291,11 +295,12 @@ export default function ProductDetailPage() {
                     "not_found_in_source" in (s.suggestedValue as object)),
               );
               const isConflict = Boolean(s.explanation?.conflict);
+              const needsAttention = Boolean(s.explanation?.needsAttention);
               return (
                 <div
                   key={s.id}
                   className={`flex flex-col gap-2 rounded-md border bg-background px-3 py-3 sm:flex-row sm:items-start sm:justify-between ${
-                    isConflict ? "border-amber-300" : "border-border"
+                    isConflict || needsAttention ? "border-amber-300" : "border-border"
                   }`}
                 >
                   <div className="min-w-0 space-y-1">
@@ -304,13 +309,28 @@ export default function ProductDetailPage() {
                       <Badge variant="outline">{s.confidence || "—"}</Badge>
                       {s.source && <Badge variant="secondary">{s.source}</Badge>}
                       {isConflict && <Badge variant="outline">conflict — pick one</Badge>}
+                      {needsAttention && <Badge variant="warning">Needs attention</Badge>}
                       {notFound && <Badge variant="danger">not found</Badge>}
                     </div>
                     <p className="text-sm text-muted-foreground break-words">
                       {suggestionPreview(s.suggestedValue)}
                     </p>
-                    {s.explanation?.reason && (
-                      <p className="text-xs text-muted-foreground">{s.explanation.reason}</p>
+                    {(s.explanation?.reason || s.explanation?.selfCheckFailures?.length) && (
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer font-medium text-foreground">
+                          Why this suggestion?
+                        </summary>
+                        <div className="mt-1 space-y-1">
+                          {s.explanation?.originLabel && <p>Origin: {s.explanation.originLabel}</p>}
+                          {s.explanation?.reason && <p>{s.explanation.reason}</p>}
+                          {s.explanation?.excerpt && <p className="italic">“{s.explanation.excerpt}”</p>}
+                          {s.explanation?.selfCheckFailures?.map((f) => (
+                            <p key={f.rule} className="text-amber-800">
+                              {f.rule}: {f.message}
+                            </p>
+                          ))}
+                        </div>
+                      </details>
                     )}
                   </div>
                   <div className="flex shrink-0 gap-2">

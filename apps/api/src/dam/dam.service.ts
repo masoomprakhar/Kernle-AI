@@ -262,14 +262,21 @@ export class DamService {
     const useMock = process.env.AI_MOCK === 'true' || !process.env.ANTHROPIC_API_KEY;
     if (useMock) {
       const base = asset.filename.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+      const tags = [base.split(' ')[0] || 'product', 'catalog', asset.mimeType.split('/')[0]].filter(
+        Boolean,
+      );
+      const altText = `${base || 'Product'} image for catalog use`;
       return {
         mock: true,
         autoSaved: false,
-        suggestions: {
-          tags: [base.split(' ')[0] || 'product', 'catalog', asset.mimeType.split('/')[0]].filter(
-            Boolean,
-          ),
-          altText: `${base || 'Product'} image for catalog use`,
+        suggestions: { tags, altText },
+        explanation: {
+          schemaVersion: 1,
+          explanationType: 'image_tag',
+          reason: `Derived tags/alt from filename "${asset.filename}"`,
+          excerpt: asset.filename,
+          originLabel: 'image filename',
+          needsAttention: false,
         },
         note: 'Suggestions only — accept explicitly to save. Never auto-applied.',
       };
@@ -294,7 +301,19 @@ export class DamService {
         .map((b: any) => b.text)
         .join('');
       const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
-      return { mock: false, autoSaved: false, suggestions: parsed };
+      return {
+        mock: false,
+        autoSaved: false,
+        suggestions: parsed,
+        explanation: {
+          schemaVersion: 1,
+          explanationType: 'image_tag',
+          reason: `Model-suggested tags/alt for "${asset.filename}"`,
+          excerpt: asset.filename,
+          originLabel: 'image analysis',
+          needsAttention: false,
+        },
+      };
     } catch {
       return {
         mock: true,
@@ -302,6 +321,14 @@ export class DamService {
         suggestions: {
           tags: ['product', 'image'],
           altText: asset.filename,
+        },
+        explanation: {
+          schemaVersion: 1,
+          explanationType: 'image_tag',
+          reason: `Fallback tags from filename "${asset.filename}"`,
+          excerpt: asset.filename,
+          originLabel: 'image filename',
+          needsAttention: false,
         },
         note: 'Fell back to mock suggestions. Not auto-saved.',
       };

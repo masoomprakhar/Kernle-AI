@@ -17,6 +17,8 @@ import { StorageService } from '../dam/storage.service';
 import { fetchUrlContent } from './url-content';
 import { attributesForExtraction } from './extract-logic';
 import { extractWithConflicts } from './conflict';
+import { buildExplanation, type ExplanationType } from './explanation';
+import { runSelfCheck } from './self-check';
 
 const EXTRACT_QUEUE = 'ai.source_extract';
 
@@ -365,16 +367,19 @@ export class IntelligenceService implements OnModuleInit {
       code: fa.attribute.code,
       type: fa.attribute.type,
       label: fa.attribute.label,
+      validationRules: fa.attribute.validationRules,
     }));
+    const attrByCode = new Map(attributes.map((a) => [a.code, a]));
 
     const existingSuggestions = await this.prisma.aiSuggestion.findMany({
       where: { organizationId, productId },
       select: { attributeCode: true, status: true, confidenceScore: true },
     });
 
+    const productValues = (product.values as Record<string, unknown>) || {};
     const codes = attributesForExtraction(
       attributes,
-      (product.values as Record<string, unknown>) || {},
+      productValues,
       existingSuggestions,
     );
 
@@ -405,20 +410,48 @@ export class IntelligenceService implements OnModuleInit {
     const created = [];
     for (const bundle of bundles) {
       for (const p of bundle.candidates) {
-        const explanation = {
-          reason: p.reason,
-          excerpt: p.excerpt || null,
-          notFound: p.notFound,
-          sourceDocumentIds: sourceDocumentIds,
-          conflict: bundle.isConflict,
-          conflictGroupId: bundle.isConflict ? bundle.conflictGroupId : null,
-          requiresHumanChoice: bundle.isConflict,
-        };
-
         const suggestedValue =
           p.notFound || !p.suggestedValue
             ? ({ not_found_in_source: true } as Prisma.InputJsonValue)
             : (p.suggestedValue as Prisma.InputJsonValue);
+
+        const attr = attrByCode.get(p.attributeCode);
+        const selfCheckFailures =
+          p.notFound || !attr
+            ? []
+            : runSelfCheck({
+                attribute: {
+                  code: attr.code,
+                  type: attr.type,
+                  validationRules: attr.validationRules,
+                },
+                suggestedValue,
+                existingValue: productValues[p.attributeCode],
+                isConflictCandidate: bundle.isConflict,
+                notFound: p.notFound,
+              });
+
+        const explanationType: ExplanationType = p.notFound
+          ? 'not_found'
+          : bundle.isConflict
+            ? 'source_conflict'
+            : 'source_extract';
+
+        const explanation = buildExplanation({
+          explanationType,
+          reason: p.reason,
+          excerpt: p.excerpt || null,
+          notFound: p.notFound,
+          sourceDocumentIds,
+          originLabel: bundle.isConflict
+            ? 'conflicting source documents'
+            : 'source document extraction',
+          conflict: bundle.isConflict,
+          conflictGroupId: bundle.isConflict ? bundle.conflictGroupId : null,
+          requiresHumanChoice: bundle.isConflict,
+          selfCheckFailures,
+          needsAttention: selfCheckFailures.length > 0 || bundle.isConflict,
+        });
 
         const row = await this.prisma.aiSuggestion.create({
           data: {

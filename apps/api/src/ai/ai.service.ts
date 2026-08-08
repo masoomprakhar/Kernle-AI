@@ -24,6 +24,13 @@ import {
   proposeCanonicalOptions,
   type FlatProduct,
 } from '../intelligence/consistency';
+import {
+  buildExplanation,
+  groupByExplanationType,
+  summarizeGroups,
+  type SuggestionExplanation,
+} from '../intelligence/explanation';
+import { runSelfCheck } from '../intelligence/self-check';
 
 const QUALITY_QUEUE = 'ai.quality_scan';
 
@@ -305,6 +312,35 @@ export class AiService implements OnModuleInit {
 
   // ─── Fill attribute suggestions ───────────────────────────
 
+  private async inferFromFamily(
+    organizationId: string,
+    familyId: string | null | undefined,
+    attributeCode: string,
+    excludeProductId: string,
+  ): Promise<{ value: string; sampleSku: string } | null> {
+    if (!familyId) return null;
+    const peers = await this.prisma.product.findMany({
+      where: { organizationId, familyId, id: { not: excludeProductId }, enabled: true },
+      take: 40,
+      select: { id: true, sku: true, values: true },
+    });
+    const counts = new Map<string, { n: number; sku: string }>();
+    for (const p of peers) {
+      const flat = flattenValue((p.values as Record<string, unknown>)?.[attributeCode]);
+      if (!flat) continue;
+      const key = flat.trim();
+      const cur = counts.get(key) || { n: 0, sku: p.sku };
+      cur.n += 1;
+      counts.set(key, cur);
+    }
+    let best: { value: string; n: number; sku: string } | null = null;
+    for (const [value, meta] of counts) {
+      if (!best || meta.n > best.n) best = { value, n: meta.n, sku: meta.sku };
+    }
+    if (!best || best.n < 2) return null;
+    return { value: best.value, sampleSku: best.sku };
+  }
+
   async suggestFill(organizationId: string, actorId: string, productId: string, attributeCodes?: string[]) {
     await this.billing.assertAiCredits(organizationId);
     const product = await this.prisma.product.findFirst({
@@ -313,29 +349,86 @@ export class AiService implements OnModuleInit {
     });
     if (!product) throw new NotFoundException('Product not found');
 
+    const familyAttrs = product.family?.attributes.map((a) => a.attribute) || [];
     const codes =
       attributeCodes ||
-      product.family?.attributes.map((a) => a.attribute.code) ||
-      [];
+      familyAttrs.map((a) => a.code);
     const values = (product.values as Record<string, any>) || {};
     const missing = codes.filter((c) => !this.completeness.isFilled(this.completeness.getValue(values, c)));
+    const attrByCode = new Map(familyAttrs.map((a) => [a.code, a]));
 
     const suggestions = [];
     for (const code of missing.slice(0, 10)) {
-      const suggestedValue = this.useMock()
-        ? { '<all_channels>': { '<all_locales>': `Suggested ${code} for ${product.sku}` } }
-        : { '<all_channels>': { '<all_locales>': `AI draft for ${code}` } };
+      const attr = attrByCode.get(code);
+      const inferred = await this.inferFromFamily(
+        organizationId,
+        product.familyId,
+        code,
+        productId,
+      );
+
+      let suggestedValue: Prisma.InputJsonValue;
+      let explanationType: 'inferred_family' | 'fill_stub';
+      let reason: string;
+      let originLabel: string;
+      let confidenceScore = 0.65;
+      let confidence = 'medium';
+
+      if (inferred) {
+        suggestedValue = {
+          '<all_channels>': { '<all_locales>': inferred.value },
+        } as Prisma.InputJsonValue;
+        explanationType = 'inferred_family';
+        reason = `Inferred from similar products in this Family (e.g. ${inferred.sampleSku}): "${inferred.value}"`;
+        originLabel = 'similar products in this Family';
+        confidenceScore = 0.72;
+        confidence = 'medium';
+      } else {
+        const draft = this.useMock()
+          ? `Suggested ${code} for ${product.sku}`
+          : `AI draft for ${code}`;
+        suggestedValue = {
+          '<all_channels>': { '<all_locales>': draft },
+        } as Prisma.InputJsonValue;
+        explanationType = 'fill_stub';
+        reason = 'Draft fill from product context — no matching family peers found';
+        originLabel = 'attribute fill draft';
+        confidenceScore = 0.55;
+        confidence = 'low';
+      }
+
+      const selfCheckFailures = attr
+        ? runSelfCheck({
+            attribute: {
+              code: attr.code,
+              type: attr.type,
+              validationRules: attr.validationRules,
+            },
+            suggestedValue,
+            existingValue: values[code],
+          })
+        : [];
+
+      const explanation = buildExplanation({
+        explanationType,
+        reason,
+        excerpt: inferred?.value || null,
+        originLabel,
+        selfCheckFailures,
+        needsAttention: selfCheckFailures.length > 0,
+      });
 
       const row = await this.prisma.aiSuggestion.create({
         data: {
           organizationId,
           productId,
           attributeCode: code,
-          suggestedValue: suggestedValue as Prisma.InputJsonValue,
-          confidence: 'medium',
-          confidenceScore: 0.65,
+          suggestedValue,
+          confidence,
+          confidenceScore,
           status: 'pending',
-          source: this.useMock() ? 'mock' : 'anthropic',
+          source: explanationType === 'inferred_family' ? 'inferred_family' : this.useMock() ? 'mock' : 'anthropic',
+          explanation: explanation as Prisma.InputJsonValue,
         },
       });
       suggestions.push(row);
@@ -354,7 +447,51 @@ export class AiService implements OnModuleInit {
     return { suggestions, autoSaved: false };
   }
 
-  async acceptSuggestion(organizationId: string, actorId: string, suggestionId: string) {
+  /**
+   * Batch enrichment across a family (or optional category filter).
+   * Returns suggestions grouped by explanation type for triage.
+   */
+  async suggestFillBatch(
+    organizationId: string,
+    actorId: string,
+    input: { familyId: string; categoryId?: string; limit?: number },
+  ) {
+    await this.billing.assertAiCredits(organizationId);
+    const take = Math.min(50, Math.max(1, input.limit || 20));
+    const products = await this.prisma.product.findMany({
+      where: {
+        organizationId,
+        familyId: input.familyId,
+        ...(input.categoryId
+          ? { categories: { some: { categoryId: input.categoryId } } }
+          : {}),
+      },
+      take,
+      select: { id: true, sku: true },
+    });
+
+    const all: unknown[] = [];
+    for (const p of products) {
+      const res = await this.suggestFill(organizationId, actorId, p.id);
+      all.push(...res.suggestions);
+    }
+
+    const groups = groupByExplanationType(all as Array<{ explanation?: unknown }>);
+    return {
+      productCount: products.length,
+      suggestionCount: all.length,
+      groups: summarizeGroups(groups),
+      byType: groups,
+      autoSaved: false,
+    };
+  }
+
+  async acceptSuggestion(
+    organizationId: string,
+    actorId: string,
+    suggestionId: string,
+    editedValue?: unknown,
+  ) {
     const suggestion = await this.prisma.aiSuggestion.findFirst({
       where: { id: suggestionId, organizationId },
     });
@@ -378,22 +515,47 @@ export class AiService implements OnModuleInit {
     });
     if (!product) throw new NotFoundException('Product not found');
 
+    const valueToWrite =
+      editedValue !== undefined && editedValue !== null
+        ? editedValue
+        : suggestion.suggestedValue;
+
+    const asIs =
+      editedValue === undefined ||
+      editedValue === null ||
+      JSON.stringify(editedValue) === JSON.stringify(suggestion.suggestedValue);
+
     const values = { ...((product.values as Record<string, any>) || {}) };
-    values[suggestion.attributeCode] = suggestion.suggestedValue;
+    values[suggestion.attributeCode] = valueToWrite;
     await this.prisma.product.update({
       where: { id: product.id },
       data: { values: values as Prisma.InputJsonValue, updatedById: actorId },
     });
     await this.completeness.refreshProduct(product.id);
 
+    const prevExp = (suggestion.explanation || {}) as SuggestionExplanation;
+    const explanation = buildExplanation({
+      ...prevExp,
+      explanationType: prevExp.explanationType || 'fill_stub',
+      reason: prevExp.reason || 'Accepted',
+      resolution: {
+        outcome: asIs ? 'accepted_as_is' : 'edited_accept',
+        editedValue: asIs ? undefined : editedValue,
+        resolvedAt: new Date().toISOString(),
+      },
+    });
+
     const updated = await this.prisma.aiSuggestion.update({
       where: { id: suggestionId },
-      data: { status: 'accepted', resolvedAt: new Date() },
+      data: {
+        status: 'accepted',
+        resolvedAt: new Date(),
+        explanation: explanation as Prisma.InputJsonValue,
+      },
     });
 
     // Conflict groups: accepting one candidate rejects the siblings (human chose).
-    const explanation = suggestion.explanation as { conflictGroupId?: string } | null;
-    if (explanation?.conflictGroupId) {
+    if (prevExp?.conflictGroupId) {
       const siblings = await this.prisma.aiSuggestion.findMany({
         where: {
           organizationId,
@@ -403,11 +565,24 @@ export class AiService implements OnModuleInit {
         },
       });
       for (const sib of siblings) {
-        const sibExp = sib.explanation as { conflictGroupId?: string } | null;
-        if (sibExp?.conflictGroupId === explanation.conflictGroupId) {
+        const sibExp = sib.explanation as SuggestionExplanation | null;
+        if (sibExp?.conflictGroupId === prevExp.conflictGroupId) {
+          const rejectedExp = buildExplanation({
+            ...sibExp,
+            explanationType: sibExp.explanationType || 'source_conflict',
+            reason: sibExp.reason || 'Rejected as conflict sibling',
+            resolution: {
+              outcome: 'rejected',
+              resolvedAt: new Date().toISOString(),
+            },
+          });
           await this.prisma.aiSuggestion.update({
             where: { id: sib.id },
-            data: { status: 'rejected', resolvedAt: new Date() },
+            data: {
+              status: 'rejected',
+              resolvedAt: new Date(),
+              explanation: rejectedExp as Prisma.InputJsonValue,
+            },
           });
         }
       }
@@ -422,7 +597,8 @@ export class AiService implements OnModuleInit {
       after: {
         productId: product.id,
         attributeCode: suggestion.attributeCode,
-        conflictGroupId: explanation?.conflictGroupId || null,
+        conflictGroupId: prevExp?.conflictGroupId || null,
+        outcome: asIs ? 'accepted_as_is' : 'edited_accept',
       },
     });
     return updated;
@@ -433,9 +609,23 @@ export class AiService implements OnModuleInit {
       where: { id: suggestionId, organizationId },
     });
     if (!suggestion) throw new NotFoundException('Suggestion not found');
+    const prevExp = (suggestion.explanation || {}) as SuggestionExplanation;
+    const explanation = buildExplanation({
+      ...prevExp,
+      explanationType: prevExp.explanationType || 'fill_stub',
+      reason: prevExp.reason || 'Rejected',
+      resolution: {
+        outcome: 'rejected',
+        resolvedAt: new Date().toISOString(),
+      },
+    });
     const updated = await this.prisma.aiSuggestion.update({
       where: { id: suggestionId },
-      data: { status: 'rejected', resolvedAt: new Date() },
+      data: {
+        status: 'rejected',
+        resolvedAt: new Date(),
+        explanation: explanation as Prisma.InputJsonValue,
+      },
     });
     await this.audit.log({
       organizationId,
@@ -455,7 +645,7 @@ export class AiService implements OnModuleInit {
         ...(productId ? { productId } : {}),
       },
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 200,
       include: {
         product: { select: { id: true, sku: true } },
         sourceDocument: {
@@ -463,6 +653,87 @@ export class AiService implements OnModuleInit {
         },
       },
     });
+  }
+
+  async listSuggestionsGrouped(organizationId: string, status = 'pending') {
+    const rows = await this.listSuggestions(organizationId, status);
+    const groups = groupByExplanationType(rows);
+    return {
+      total: rows.length,
+      groups: summarizeGroups(groups),
+      byType: groups,
+    };
+  }
+
+  /**
+   * Read-only calibration: accept/reject/edit rates by attribute code (and type when known).
+   */
+  async accuracyInsights(organizationId: string) {
+    const resolved = await this.prisma.aiSuggestion.findMany({
+      where: {
+        organizationId,
+        status: { in: ['accepted', 'rejected'] },
+      },
+      take: 2000,
+      orderBy: { resolvedAt: 'desc' },
+    });
+
+    const attrs = await this.prisma.attribute.findMany({
+      where: { organizationId },
+      select: { code: true, type: true },
+    });
+    const typeByCode = new Map(attrs.map((a) => [a.code, a.type]));
+
+    type Bucket = {
+      attributeCode: string;
+      attributeType: string;
+      total: number;
+      acceptedAsIs: number;
+      editedAccept: number;
+      rejected: number;
+    };
+    const byCode = new Map<string, Bucket>();
+
+    for (const s of resolved) {
+      const code = s.attributeCode || 'unknown';
+      const exp = s.explanation as SuggestionExplanation | null;
+      const bucket = byCode.get(code) || {
+        attributeCode: code,
+        attributeType: typeByCode.get(code) || 'unknown',
+        total: 0,
+        acceptedAsIs: 0,
+        editedAccept: 0,
+        rejected: 0,
+      };
+      bucket.total += 1;
+      const outcome = exp?.resolution?.outcome;
+      if (outcome === 'edited_accept') bucket.editedAccept += 1;
+      else if (outcome === 'accepted_as_is' || (s.status === 'accepted' && !outcome)) {
+        bucket.acceptedAsIs += 1;
+      } else if (s.status === 'rejected' || outcome === 'rejected') {
+        bucket.rejected += 1;
+      }
+      byCode.set(code, bucket);
+    }
+
+    const rows = [...byCode.values()]
+      .map((b) => ({
+        ...b,
+        acceptedAsIsRate: b.total ? b.acceptedAsIs / b.total : 0,
+        editedAcceptRate: b.total ? b.editedAccept / b.total : 0,
+        rejectedRate: b.total ? b.rejected / b.total : 0,
+        summary:
+          b.total === 0
+            ? 'No data'
+            : `${b.attributeCode} (${b.attributeType}): accepted as-is ${Math.round(
+                (b.acceptedAsIs / b.total) * 100,
+              )}% of the time; edited before accepting ${Math.round(
+                (b.editedAccept / b.total) * 100,
+              )}% of the time; rejected ${Math.round((b.rejected / b.total) * 100)}%`,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    return { byAttribute: rows, sampleSize: resolved.length };
   }
 
   // ─── Quality scan ─────────────────────────────────────────

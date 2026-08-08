@@ -625,6 +625,53 @@ Re-scans resolve prior open `consistency` / `near_duplicate` findings before wri
 
 UI: Attributes → **Canonicalize**; AI Insights → merge / compare actions on findings.
 
+## Product Intelligence — Phase 3 explanation schema
+
+Every `AiSuggestion.explanation` (and DAM tag suggestion payloads) SHOULD use this additive JSON shape. Do not invent parallel formats.
+
+```json
+{
+  "schemaVersion": 1,
+  "explanationType": "source_extract | source_conflict | inferred_family | fill_stub | image_tag | not_found",
+  "reason": "One-line plain-language reason",
+  "excerpt": "Weight: 1.2kg",
+  "originLabel": "source document extraction",
+  "sourceDocumentIds": ["..."],
+  "notFound": false,
+  "conflict": false,
+  "conflictGroupId": null,
+  "requiresHumanChoice": false,
+  "needsAttention": false,
+  "selfCheckFailures": [{ "rule": "min", "message": "..." }],
+  "resolution": {
+    "outcome": "accepted_as_is | edited_accept | rejected",
+    "editedValue": null,
+    "resolvedAt": "ISO-8601"
+  }
+}
+```
+
+### Pre-review self-check
+
+Before a suggestion is shown as “clean”, `runSelfCheck` validates:
+
+| Rule | When |
+|------|------|
+| `type_number` / `type_boolean` / `type_date` | Value incompatible with attribute type |
+| `min` / `max` / `minLength` / `maxLength` / `regex` | From `Attribute.validationRules` |
+| `accepted_value_conflict` | Differs from an already-accepted product value (skipped for conflict candidates) |
+| AttributeDependency | **Skipped** until Akeneo-parity deps exist |
+
+Failures never drop the suggestion — they set `needsAttention: true` and surface under **Why this suggestion?** / Needs attention triage.
+
+### Calibration & batch
+
+- `GET /api/ai/insights/accuracy` — per-attribute accept-as-is / edit-then-accept / reject rates (read-only)
+- `POST /api/ai/fill/batch` — family enrichment; response `groups` counts by explanation type (+ needs_attention)
+- `GET /api/ai/suggestions?grouped=true` — same grouping for the pending queue
+
+UI: AI Insights → Enrichment queue (triage chips + Why this suggestion?), Batch, Accuracy tabs.
+
 ## Known Gaps
 
 - The exact hex values of pastel demo-grid surfaces (`{colors.signature-peach}`, `{colors.signature-mint}`, `{colors.signature-yellow}`, `{colors.signature-mustard}`) are inferred from screenshot pixel sampling. Some product launches may swap these surfaces seasonally.
