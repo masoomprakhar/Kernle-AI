@@ -1,0 +1,19 @@
+{
+  "classpath": "Plumbing > Kitchen & Bath > Sink Faucets",
+  "unspsc": "30181801",
+  "attributes": {
+    "finish": [
+      "Chrome",
+      "Brushed Nickel",
+      "Matte Black",
+      "Stainless Steel",
+      "Oil Rubbed Bronze",
+      "Polished Chrome"
+    ],
+    "mounting": ["Deck Mount", "Wall Mount", "Single Hole", "Centerset", "Widespread"],
+    "handle_type": ["Single Handle", "Two Handle", "Touchless"],
+    "spout_type": ["High Arc", "Low Arc", "Pull-Down", "Pull-Out", "Gooseneck"],
+    "material": ["Brass", "Zinc", "Stainless Steel", "Plastic"],
+    "connection_type": ["3/8 in Compression", "1/2 in IPS", "Quick Connect"]
+  }
+}

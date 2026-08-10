@@ -1,0 +1,69 @@
+{
+  "classpath": "Plumbing > Pipe / Tube / Hose Fittings",
+  "unspsc": "40141700",
+  "attributes": {
+    "fitting_type": [
+      "Coupling",
+      "Elbow",
+      "Tee",
+      "Reducer",
+      "Adapter",
+      "Union",
+      "Cap",
+      "Plug"
+    ],
+    "material": [
+      "Brass",
+      "Copper",
+      "PVC",
+      "CPVC",
+      "Stainless Steel",
+      "Carbon Steel",
+      "Galvanized Steel"
+    ],
+    "connection_type": [
+      "NPT",
+      "Sweat",
+      "Push-to-Connect",
+      "Compression",
+      "Flare",
+      "Socket Weld",
+      "Threaded"
+    ],
+    "angle": ["90 deg", "45 deg", "Straight"],
+    "pressure_class": ["150#", "300#", "Schedule 40", "Schedule 80"]
+  },
+  "connectionAliases": {
+    "THR": "Threaded",
+    "THD": "Threaded",
+    "NPTM": "NPT",
+    "NPTF": "NPT",
+    "SWT": "Sweat",
+    "PUSH": "Push-to-Connect",
+    "P2C": "Push-to-Connect",
+    "COMP": "Compression"
+  },
+  "materialAliases": {
+    "BRS": "Brass",
+    "BRASS": "Brass",
+    "CU": "Copper",
+    "COP": "Copper",
+    "SS": "Stainless Steel",
+    "SST": "Stainless Steel",
+    "PVC": "PVC",
+    "CPVC": "CPVC",
+    "GALV": "Galvanized Steel"
+  },
+  "fittingAliases": {
+    "CPLG": "Coupling",
+    "COUPLING": "Coupling",
+    "ELL": "Elbow",
+    "ELBOW": "Elbow",
+    "TEE": "Tee",
+    "RED": "Reducer",
+    "ADPT": "Adapter",
+    "UNION": "Union",
+    "CAP": "Cap",
+    "PLG": "Plug"
+  }
+}

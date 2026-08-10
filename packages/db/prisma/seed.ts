@@ -515,6 +515,12 @@ async function main() {
     });
   }
 
+  if (process.env.SEED_UNILOG !== 'false' && process.env.SEED_UNILOG !== '0') {
+    const { seedUnilog } = await import('./seed-unilog');
+    const uni = await seedUnilog(org.id);
+    console.log(`Unilog industrial seed: products=${uni.products}`);
+  }
+
   console.log(
     `Seed complete: org=${org.slug} workspace=${workspace.slug} products=${demoProducts.length} findings=${findings.length} suggestions=${suggestions.length}`,
   );

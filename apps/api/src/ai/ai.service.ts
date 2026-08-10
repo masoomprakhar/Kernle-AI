@@ -414,6 +414,7 @@ export class AiService implements OnModuleInit {
               code: attr.code,
               type: attr.type,
               validationRules: attr.validationRules,
+              options: attr.options,
             },
             suggestedValue,
             existingValue: values[code],

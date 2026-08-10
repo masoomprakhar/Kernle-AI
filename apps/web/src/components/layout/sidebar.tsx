@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Brain,
+  Factory,
   FolderTree,
   ImageIcon,
   LayoutDashboard,
@@ -19,10 +20,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
+import { BrandLogo } from "@/components/brand-logo";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/intelligence", label: "Intelligence", icon: Sparkles },
+  { href: "/intelligence/unilog", label: "Industrial demo", icon: Factory },
   { href: "/products", label: "Products", icon: Package },
   { href: "/categories", label: "Categories", icon: FolderTree },
   { href: "/attributes", label: "Attributes", icon: Tags },
@@ -42,8 +45,8 @@ export function Sidebar() {
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-hairline bg-canvas">
       <div className="flex h-16 items-center px-5">
-        <Link href="/dashboard" className="font-display text-title-sm font-bold text-ink">
-          Kernle AI
+        <Link href="/dashboard" className="inline-flex items-center" aria-label="Kernle AI">
+          <BrandLogo size="sm" priority />
         </Link>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4">

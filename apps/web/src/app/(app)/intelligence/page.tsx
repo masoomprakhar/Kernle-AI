@@ -73,12 +73,23 @@ export default function IntelligencePage() {
             </Link>
           </Button>
           <Button asChild variant="secondary">
-            <Link href="/products">Bulk run on catalog</Link>
+            <Link href="/intelligence/unilog">Industrial enrichment</Link>
           </Button>
           <Button asChild variant="outline">
             <Link href="/ai">Review queue</Link>
           </Button>
         </div>
+      </div>
+
+      <div className="rounded-md border border-hairline bg-canvas px-4 py-3">
+        <p className="text-sm font-medium text-ink">Industrial enrichment demo</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Abbreviated distributor rows → brand/UOM normalize, LOV-checked attributes, channel
+          descriptions — still Accept-gated before live values.
+        </p>
+        <Button asChild size="sm" className="mt-3" variant="outline">
+          <Link href="/intelligence/unilog">Open guided demo</Link>
+        </Button>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

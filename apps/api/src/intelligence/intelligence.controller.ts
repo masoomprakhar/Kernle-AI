@@ -47,6 +47,11 @@ class BulkIntelligenceRunDto {
   @IsOptional() @IsBoolean() async?: boolean;
 }
 
+class UnilogEnrichDto {
+  @IsOptional() @IsArray() @IsString({ each: true }) productIds?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) skus?: string[];
+}
+
 function org(user: AuthUser) {
   if (!user.organizationId) throw new ForbiddenException('Organization context required');
   return user.organizationId;
@@ -115,5 +120,25 @@ export class IntelligenceController {
   @Roles('CatalogManager')
   bulkRun(@CurrentUser() user: AuthUser, @Body() dto: BulkIntelligenceRunDto) {
     return this.intelligence.bulkIntelligenceRun(org(user), user.id, dto);
+  }
+
+  @Post('unilog/enrich')
+  @Roles('Contributor')
+  unilogEnrich(@CurrentUser() user: AuthUser, @Body() dto: UnilogEnrichDto) {
+    return this.intelligence.enrichUnilogProducts(org(user), user.id, {
+      productIds: dto.productIds,
+      skus: dto.skus,
+    });
+  }
+
+  @Get('unilog/eval')
+  @Roles('Viewer')
+  unilogEval(
+    @CurrentUser() user: AuthUser,
+    @Query('usePending') usePending?: string,
+  ) {
+    return this.intelligence.evalUnilog(org(user), {
+      usePending: usePending !== 'false' && usePending !== '0',
+    });
   }
 }

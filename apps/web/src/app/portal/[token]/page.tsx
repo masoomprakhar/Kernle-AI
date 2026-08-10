@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { API_BASE } from "@/lib/api";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,7 @@ export default function SupplierPortalPage() {
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_hsl(36_40%_88%),_transparent_55%)]">
       <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 animate-fade-in">
         <div>
-          <p className="font-display text-3xl font-semibold text-primary">Kernle AI</p>
+          <BrandLogo size="lg" priority />
           <h1 className="mt-1 font-display text-2xl font-medium">Supplier portal</h1>
           <p className="text-sm text-muted-foreground">Submit product content for catalog review.</p>
         </div>

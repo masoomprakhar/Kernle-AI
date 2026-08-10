@@ -162,16 +162,16 @@ pnpm db:seed
 ```bash
 # Terminal A — API (Swagger)
 pnpm dev:api
-# → http://localhost:3200/api/docs
+# → http://localhost:3300/api/docs
 
 # Terminal B — Web
 pnpm dev:web
-# → http://localhost:3201
+# → http://localhost:3301
 ```
 
 Or both: `pnpm dev` (parallel filters).
 
-Align `NEXT_PUBLIC_API_URL` in the web env with the API (default `http://localhost:3200/api`).
+Align `NEXT_PUBLIC_API_URL` in the web env with the API (default `http://localhost:3300/api`).
 
 ### Demo accounts (after seed)
 

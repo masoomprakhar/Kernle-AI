@@ -5,6 +5,8 @@ export type AttributeForCheck = {
   code: string;
   type: string;
   validationRules?: unknown;
+  /** Select/multiselect permitted values (LOV) */
+  options?: unknown;
 };
 
 export type SelfCheckInput = {
@@ -121,7 +123,39 @@ export function runSelfCheck(input: SelfCheckInput): SelfCheckFailure[] {
     }
   }
 
+  // LOV / select options — constrained vocabulary (Unilog-style)
+  if (type === 'select' || type === 'multiselect') {
+    const allowed = normalizeOptions(input.attribute.options);
+    if (allowed.length) {
+      const ok = allowed.some((o) => o.toLowerCase() === scalar.toLowerCase());
+      if (!ok) {
+        failures.push({
+          rule: 'lov_not_allowed',
+          message: `"${scalar}" is not in the approved list of values for ${input.attribute.code}`,
+        });
+      }
+    }
+  }
+
   // AttributeDependency: not implemented yet — intentionally skipped.
 
   return failures;
+}
+
+function normalizeOptions(options: unknown): string[] {
+  if (!Array.isArray(options)) return [];
+  return options
+    .map((o) => {
+      if (typeof o === 'string') return o;
+      if (o && typeof o === 'object') {
+        const row = o as { code?: string; label?: unknown };
+        if (row.code) return String(row.code);
+        if (typeof row.label === 'string') return row.label;
+        if (row.label && typeof row.label === 'object' && 'en_US' in (row.label as object)) {
+          return String((row.label as { en_US: string }).en_US);
+        }
+      }
+      return '';
+    })
+    .filter(Boolean);
 }

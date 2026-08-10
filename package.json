@@ -13,10 +13,13 @@
     "db:generate": "pnpm --filter @kernle/db generate",
     "db:migrate": "pnpm --filter @kernle/db migrate",
     "db:seed": "pnpm --filter @kernle/db seed",
+    "db:seed:unilog": "pnpm --filter @kernle/db seed:unilog",
     "db:push": "pnpm --filter @kernle/db push",
+    "demo:unilog": "node scripts/demo-unilog.mjs",
     "smoke": "node scripts/smoke.mjs",
     "load:intelligence": "node scripts/load-intelligence.mjs",
     "e2e:intelligence": "node scripts/e2e-intelligence.mjs",
+    "e2e:unilog": "node scripts/e2e-unilog.mjs",
     "probe:apis": "node scripts/probe-apis.mjs"
   },
   "engines": {

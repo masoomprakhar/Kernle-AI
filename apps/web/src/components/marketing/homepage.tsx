@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { FaqSection } from "@/components/marketing/faq";
 import { HeroDemo } from "@/components/marketing/hero-demo";
@@ -234,11 +235,8 @@ export function Homepage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-hairline/80 bg-canvas/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6 md:px-8">
-          <Link
-            href="/"
-            className="font-display text-[18px] font-semibold tracking-[-0.02em] text-ink"
-          >
-            Kernle AI
+          <Link href="/" className="inline-flex items-center" aria-label="Kernle AI">
+            <BrandLogo size="md" priority />
           </Link>
           <nav className="hidden items-center gap-7 text-[14px] text-body md:flex">
             {NAV.map(([href, label]) => (
@@ -487,6 +485,11 @@ export function Homepage() {
               attributes, flags when sources disagree, explains every suggestion, and waits for your
               Accept before anything becomes live product data.
             </p>
+            <p className="mt-4 max-w-[54ch] text-[15px] leading-[1.65] text-body">
+              For industrial distributors, the same Accept-gated path cleans abbreviated part
+              descriptions, maps brands and units to approved lists, and builds channel-ready copy —
+              without silent writes to the live catalog.
+            </p>
             <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ["Gather", "URLs, PDFs, and paste become retained evidence — not one-off uploads."],
@@ -642,9 +645,7 @@ export function Homepage() {
         <div className="mx-auto max-w-[1200px] px-6 py-16 md:px-8">
           <div className="grid gap-10 md:grid-cols-5">
             <div>
-              <p className="font-display text-[15px] font-semibold tracking-[-0.02em] text-ink">
-                Kernle AI
-              </p>
+              <BrandLogo size="sm" />
               <p className="mt-3 max-w-[28ch] text-[13px] leading-relaxed text-muted-foreground">
                 Product data infrastructure for teams that ship across channels.
               </p>

@@ -26,6 +26,7 @@ Sources → Extract → Conflicts / consistency → Self-check + explanation →
 ## UI map
 
 - **`/intelligence`** — catalog-wide health: from-source volume, avg source→Accept time, findings, accuracy, queue triage.
+- **`/intelligence/unilog`** — industrial enrichment guided demo (faucets/fittings, LOV + UOM, eval vs ground truth). See [UNILOG_DEMO.md](./UNILOG_DEMO.md).
 - **`/products/new/from-source`** — guided Setup → Sources → Extract → Review → Live.
 - **`/products`** — select SKUs → **Intelligence run** (shared source cloned per product, batch-priority jobs).
 - **`/ai`** — full enrichment queue, batch fill, accuracy, jobs metrics, quality findings.
@@ -49,8 +50,12 @@ pnpm --filter @kernle/api test
 # Full Accept-gated workflow against a running API (AI_MOCK recommended)
 pnpm e2e:intelligence
 
+# Industrial enrichment demo + e2e (seed UNI-* SKUs first)
+pnpm demo:unilog
+pnpm e2e:unilog
+
 # Throughput drain (Phase 4)
 LOAD_SKU_COUNT=25 pnpm load:intelligence
 ```
 
-Demo login: `owner@kernle.local` / `demo1234`. API default `http://localhost:3100/api`.
+Demo login: `owner@kernle.local` / `demo1234`. API default `http://localhost:3100/api` (local stacks may use 3200/3300).

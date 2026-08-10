@@ -25,6 +25,14 @@ import {
   scopeAttributeCodes,
 } from './incremental';
 import { EXTRACT_QUEUE } from './queues';
+import { loadUnilogPack } from './unilog/load-data';
+import { enrichFromRaw } from './unilog/extract';
+import { cleanBrandCandidates } from './unilog/placeholders';
+import {
+  scoreAgainstGroundTruth,
+  valuesFromProductJson,
+} from './unilog/eval';
+import { flattenValue } from './consistency';
 
 export { EXTRACT_QUEUE, FILL_QUEUE } from './queues';
 
@@ -650,11 +658,24 @@ export class IntelligenceService implements OnModuleInit {
       where: { organizationId, id: { in: sourceDocumentIds } },
     });
 
+    // Industrial / Unilog-style families use the deterministic enrichment pipeline
+    if (family.code === 'faucet' || family.code === 'fitting') {
+      const result = await this.enrichUnilogProducts(organizationId, actorId, {
+        productIds: [productId],
+      });
+      return {
+        created: result.suggestionCount,
+        skippedAttributes: 0,
+        suggestions: result.suggestions,
+      };
+    }
+
     const attributes = family.attributes.map((fa) => ({
       code: fa.attribute.code,
       type: fa.attribute.type,
       label: fa.attribute.label,
       validationRules: fa.attribute.validationRules,
+      options: fa.attribute.options,
     }));
     const attrByCode = new Map(attributes.map((a) => [a.code, a]));
 
@@ -718,6 +739,7 @@ export class IntelligenceService implements OnModuleInit {
                   code: attr.code,
                   type: attr.type,
                   validationRules: attr.validationRules,
+                  options: attr.options,
                 },
                 suggestedValue,
                 existingValue: productValues[p.attributeCode],
@@ -809,5 +831,310 @@ export class IntelligenceService implements OnModuleInit {
     });
     if (!p) throw new NotFoundException('Product not found');
     return p;
+  }
+
+  /**
+   * Deterministic industrial enrichment → AiSuggestion rows only (Accept-gated).
+   * Never writes live Product.values.
+   */
+  async enrichUnilogProducts(
+    organizationId: string,
+    actorId: string,
+    opts: { productIds?: string[]; skus?: string[] } = {},
+  ) {
+    const pack = loadUnilogPack();
+    const families = await this.prisma.family.findMany({
+      where: { organizationId, code: { in: ['faucet', 'fitting'] } },
+      include: { attributes: { include: { attribute: true } } },
+    });
+    if (!families.length) {
+      throw new BadRequestException(
+        'Industrial faucet/fitting families not seeded. Run SEED_UNILOG seed first.',
+      );
+    }
+    const familyIds = families.map((f) => f.id);
+    const attrByCode = new Map(
+      families.flatMap((f) =>
+        f.attributes.map((fa) => [
+          fa.attribute.code,
+          {
+            code: fa.attribute.code,
+            type: fa.attribute.type,
+            validationRules: fa.attribute.validationRules,
+            options: fa.attribute.options,
+          },
+        ]),
+      ),
+    );
+
+    const where: Prisma.ProductWhereInput = {
+      organizationId,
+      familyId: { in: familyIds },
+    };
+    if (opts.productIds?.length) where.id = { in: opts.productIds };
+    if (opts.skus?.length) where.sku = { in: opts.skus };
+
+    const products = await this.prisma.product.findMany({
+      where,
+      take: 80,
+      orderBy: { sku: 'asc' },
+    });
+    if (!products.length) {
+      throw new NotFoundException('No industrial products found for enrichment');
+    }
+
+    const sources = await this.prisma.sourceDocument.findMany({
+      where: {
+        organizationId,
+        productId: { in: products.map((p) => p.id) },
+        status: { in: [SourceDocumentStatus.parsed, SourceDocumentStatus.pending] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const sourceByProduct = new Map<string, (typeof sources)[0]>();
+    for (const s of sources) {
+      if (s.productId && !sourceByProduct.has(s.productId)) {
+        sourceByProduct.set(s.productId, s);
+      }
+    }
+
+    const rawBySku = new Map(pack.rawItems.map((r) => [r.sku, r]));
+    const created = [];
+    let needsAttentionCount = 0;
+
+    for (const product of products) {
+      const values = (product.values as Record<string, unknown>) || {};
+      const raw = rawBySku.get(product.sku);
+      const src = sourceByProduct.get(product.id);
+      const partDesc =
+        flattenValue(values.part_desc_raw) ||
+        raw?.partDesc ||
+        this.extractFieldFromText(src?.rawContent, 'Part Description') ||
+        '';
+      const mpn =
+        flattenValue(values.mpn) ||
+        raw?.mfgPartNum ||
+        this.extractFieldFromText(src?.rawContent, 'MPN') ||
+        '';
+      const brandHints = cleanBrandCandidates(
+        raw?.unilogBrand,
+        raw?.dibBrand,
+        raw?.e1Brand,
+        this.extractFieldFromText(src?.rawContent, 'Brand hint'),
+        this.extractFieldFromText(src?.rawContent, 'E1_Brand'),
+        flattenValue(values.brand),
+      );
+      const family = families.find((f) => f.id === product.familyId);
+      const familyHint = family?.code || raw?.familyHint || null;
+
+      const proposals = enrichFromRaw({
+        partDesc,
+        mpn,
+        brandHints,
+        familyHint,
+        brandMaster: pack.brandMaster,
+        uomRules: pack.uomRules,
+        lov: pack.lov,
+      });
+
+      const codes = proposals.map((p) => p.attributeCode);
+      if (codes.length) {
+        await this.prisma.aiSuggestion.deleteMany({
+          where: {
+            organizationId,
+            productId: product.id,
+            status: 'pending',
+            attributeCode: { in: codes },
+            source: { in: ['unilog_enrich', 'source_extraction'] },
+          },
+        });
+      }
+
+      for (const p of proposals) {
+        const suggestedValue = {
+          '<all_channels>': { '<all_locales>': p.value },
+        } as Prisma.InputJsonValue;
+        const attr = attrByCode.get(p.attributeCode);
+        const selfCheckFailures = attr
+          ? runSelfCheck({
+              attribute: attr,
+              suggestedValue,
+              existingValue: values[p.attributeCode],
+            })
+          : [];
+        const needsAttention = selfCheckFailures.length > 0;
+        if (needsAttention) needsAttentionCount += 1;
+
+        const explanation = buildExplanation({
+          explanationType: 'source_extract',
+          reason: p.reason,
+          excerpt: p.excerpt || null,
+          originLabel: 'industrial enrichment pipeline',
+          sourceDocumentIds: src ? [src.id] : [],
+          selfCheckFailures,
+          needsAttention,
+        });
+
+        const row = await this.prisma.aiSuggestion.create({
+          data: {
+            organizationId,
+            productId: product.id,
+            attributeCode: p.attributeCode,
+            suggestedValue,
+            confidence: p.confidence,
+            confidenceScore: p.confidenceScore,
+            status: 'pending',
+            source: 'unilog_enrich',
+            sourceDocumentId: src?.id,
+            explanation: explanation as Prisma.InputJsonValue,
+          },
+        });
+        created.push(row);
+      }
+    }
+
+    await this.billing.consumeAiCredits(organizationId, Math.max(1, Math.ceil(products.length / 10)));
+    await this.prisma.aiUsageLog.create({
+      data: {
+        organizationId,
+        operation: 'unilog.enrich',
+        tokensIn: 0,
+        tokensOut: products.length,
+      },
+    });
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'intelligence.unilog_enrich',
+      entityType: 'Organization',
+      entityId: organizationId,
+      after: {
+        productCount: products.length,
+        suggestionCount: created.length,
+        autoCommitted: false,
+      },
+    });
+
+    this.logger.log(
+      JSON.stringify({
+        msg: 'unilog_enrich_complete',
+        organizationId,
+        productCount: products.length,
+        suggestionCount: created.length,
+        needsAttentionCount,
+      }),
+    );
+
+    return {
+      productCount: products.length,
+      suggestionCount: created.length,
+      needsAttentionCount,
+      autoCommitted: false,
+      suggestions: created,
+    };
+  }
+
+  async evalUnilog(
+    organizationId: string,
+    opts: { usePending?: boolean } = {},
+  ) {
+    const pack = loadUnilogPack();
+    const usePending = opts.usePending !== false;
+    const skus = pack.groundTruth.map((g) => g.sku);
+    const products = await this.prisma.product.findMany({
+      where: { organizationId, sku: { in: skus } },
+    });
+    const byId = new Map(products.map((p) => [p.id, p]));
+    const bySku = new Map(products.map((p) => [p.sku, p]));
+
+    const actualBySku: Record<string, Record<string, string>> = {};
+    for (const gt of pack.groundTruth) {
+      const product = bySku.get(gt.sku);
+      if (!product) {
+        actualBySku[gt.sku] = {};
+        continue;
+      }
+      const fromProduct = valuesFromProductJson(
+        product.values as Record<string, unknown>,
+      );
+      actualBySku[gt.sku] = { ...fromProduct };
+
+      if (usePending) {
+        const pending = await this.prisma.aiSuggestion.findMany({
+          where: {
+            organizationId,
+            productId: product.id,
+            status: 'pending',
+            source: { in: ['unilog_enrich', 'source_extraction'] },
+          },
+        });
+        for (const s of pending) {
+          if (!s.attributeCode) continue;
+          // Prefer already-accepted live values; fill gaps from pending proposals
+          if (!actualBySku[gt.sku][s.attributeCode]) {
+            const flat = flattenValue(s.suggestedValue);
+            if (flat) actualBySku[gt.sku][s.attributeCode] = flat;
+          }
+        }
+      }
+    }
+
+    const lovValuesByAttr: Record<string, string[]> = {
+      finish: pack.lov.faucets.attributes.finish,
+      mounting: pack.lov.faucets.attributes.mounting,
+      handle_type: pack.lov.faucets.attributes.handle_type,
+      spout_type: pack.lov.faucets.attributes.spout_type,
+      faucet_material: pack.lov.faucets.attributes.material,
+      fitting_type: pack.lov.fittings.attributes.fitting_type,
+      fitting_material: pack.lov.fittings.attributes.material,
+      connection_type: pack.lov.fittings.attributes.connection_type,
+      angle: pack.lov.fittings.attributes.angle,
+      pressure_class: pack.lov.fittings.attributes.pressure_class,
+    };
+
+    const score = scoreAgainstGroundTruth({
+      groundTruth: pack.groundTruth,
+      actualBySku,
+      lovValuesByAttr,
+    });
+
+    const pendingNeedsAttention = await this.prisma.aiSuggestion.count({
+      where: {
+        organizationId,
+        productId: { in: products.map((p) => p.id) },
+        status: 'pending',
+        source: 'unilog_enrich',
+      },
+    });
+    // Count needsAttention via explanation JSON scan (lightweight)
+    const pendingRows = await this.prisma.aiSuggestion.findMany({
+      where: {
+        organizationId,
+        productId: { in: [...byId.keys()] },
+        status: 'pending',
+        source: 'unilog_enrich',
+      },
+      select: { explanation: true },
+    });
+    const needsReviewCount = pendingRows.filter((r) => {
+      const exp = r.explanation as { needsAttention?: boolean } | null;
+      return !!exp?.needsAttention;
+    }).length;
+
+    return {
+      ...score,
+      needsReviewCount,
+      pendingSuggestionCount: pendingNeedsAttention,
+      mode: usePending ? 'accepted_plus_pending' : 'accepted_only',
+      labelledSkus: skus.length,
+      productsFound: products.length,
+    };
+  }
+
+  private extractFieldFromText(text: string | null | undefined, label: string): string {
+    if (!text) return '';
+    const re = new RegExp(`${label}\\s*:\\s*(.+)`, 'i');
+    const m = text.match(re);
+    return m?.[1]?.trim() || '';
   }
 }

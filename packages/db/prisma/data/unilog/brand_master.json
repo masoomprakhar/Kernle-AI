@@ -1,0 +1,58 @@
+[
+  {
+    "manufacturerName": "Moen Incorporated",
+    "manufacturerCode": "MOEN",
+    "brandName": "MOEN®",
+    "brandCode": "MOEN",
+    "aliases": ["Moen", "MOEN", "moen inc", "Moen Inc.", "Moen Incorporated"]
+  },
+  {
+    "manufacturerName": "Delta Faucet Company",
+    "manufacturerCode": "DELTA",
+    "brandName": "DELTA®",
+    "brandCode": "DELTA",
+    "aliases": ["Delta", "DELTA", "Delta Faucet", "delta faucet co"]
+  },
+  {
+    "manufacturerName": "Kohler Co.",
+    "manufacturerCode": "KOHLER",
+    "brandName": "KOHLER®",
+    "brandCode": "KOHLER",
+    "aliases": ["Kohler", "KOHLER", "Kohler Co", "kohler company"]
+  },
+  {
+    "manufacturerName": "Uponor Inc.",
+    "manufacturerCode": "UPONOR",
+    "brandName": "UPONOR®",
+    "brandCode": "UPONOR",
+    "aliases": ["Uponor", "UPONOR", "Uponor Inc"]
+  },
+  {
+    "manufacturerName": "NIBCO Inc.",
+    "manufacturerCode": "NIBCO",
+    "brandName": "NIBCO®",
+    "brandCode": "NIBCO",
+    "aliases": ["Nibco", "NIBCO", "NIBCO Inc", "nibco brass"]
+  },
+  {
+    "manufacturerName": "Charlotte Pipe and Foundry Company",
+    "manufacturerCode": "CHARLOTTE",
+    "brandName": "CHARLOTTE PIPE®",
+    "brandCode": "CHARPIPE",
+    "aliases": ["Charlotte", "Charlotte Pipe", "CHARLOTTE PIPE", "charlotte pvc"]
+  },
+  {
+    "manufacturerName": "Watts Water Technologies, Inc.",
+    "manufacturerCode": "WATTS",
+    "brandName": "WATTS®",
+    "brandCode": "WATTS",
+    "aliases": ["Watts", "WATTS", "Watts Water", "watts regulator"]
+  },
+  {
+    "manufacturerName": "American Standard Brands",
+    "manufacturerCode": "AMSTD",
+    "brandName": "AMERICAN STANDARD®",
+    "brandCode": "AMSTD",
+    "aliases": ["American Standard", "AMERICAN STANDARD", "AmStd", "american std"]
+  }
+]

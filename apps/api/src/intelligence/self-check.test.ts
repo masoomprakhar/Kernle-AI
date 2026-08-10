@@ -62,4 +62,31 @@ describe('runSelfCheck', () => {
     });
     assert.equal(failures.length, 0);
   });
+
+  it('flags select values outside LOV options', () => {
+    const failures = runSelfCheck({
+      attribute: {
+        code: 'finish',
+        type: 'select',
+        options: [
+          { code: 'Chrome', label: { en_US: 'Chrome' } },
+          { code: 'Brushed Nickel', label: { en_US: 'Brushed Nickel' } },
+        ],
+      },
+      suggestedValue: { '<all_channels>': { '<all_locales>': 'Hot Pink' } },
+    });
+    assert.ok(failures.some((f) => f.rule === 'lov_not_allowed'));
+  });
+
+  it('allows select values in LOV options', () => {
+    const failures = runSelfCheck({
+      attribute: {
+        code: 'finish',
+        type: 'select',
+        options: ['Chrome', 'Brushed Nickel'],
+      },
+      suggestedValue: { '<all_channels>': { '<all_locales>': 'Chrome' } },
+    });
+    assert.ok(!failures.some((f) => f.rule === 'lov_not_allowed'));
+  });
 });
