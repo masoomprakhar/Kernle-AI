@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { memoryStorage } from 'multer';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -49,6 +49,12 @@ class BulkIntelligenceRunDto {
 
 class UnilogEnrichDto {
   @IsOptional() @IsArray() @IsString({ each: true }) productIds?: string[];
+  @IsOptional() @IsArray() @IsString({ each: true }) skus?: string[];
+}
+
+class UnilogBatchDto {
+  @IsOptional() @IsIn(['sample1000', 'seed']) source?: 'sample1000' | 'seed';
+  @IsOptional() @IsInt() @Min(1) @Max(1000) limit?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) skus?: string[];
 }
 
@@ -129,6 +135,28 @@ export class IntelligenceController {
       productIds: dto.productIds,
       skus: dto.skus,
     });
+  }
+
+  @Post('unilog/batch')
+  @Roles('Contributor')
+  unilogBatch(@CurrentUser() user: AuthUser, @Body() dto: UnilogBatchDto) {
+    return this.intelligence.batchUnilogEnrich(org(user), user.id, {
+      source: dto.source,
+      limit: dto.limit,
+      skus: dto.skus,
+    });
+  }
+
+  @Get('unilog/export')
+  @Roles('Viewer')
+  unilogExport(
+    @CurrentUser() user: AuthUser,
+    @Query('skus') skus?: string,
+  ) {
+    const list = skus
+      ? skus.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+    return this.intelligence.exportUnilogCsv(org(user), { skus: list });
   }
 
   @Get('unilog/eval')

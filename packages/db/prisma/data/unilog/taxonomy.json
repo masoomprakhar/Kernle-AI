@@ -1,0 +1,74 @@
+{
+  "dishwasher": {
+    "family": "dishwasher",
+    "classpath": "Appliances & Consumer Electronics>Kitchen Appliances>Built-In Dishwashers",
+    "dept": "Appliances",
+    "class": "Large Appliances",
+    "fine": "Dishwashers",
+    "productName": "Dishwasher"
+  },
+  "faucet": {
+    "family": "faucet",
+    "classpath": "Plumbing > Kitchen & Bath > Sink Faucets",
+    "dept": "Plumbing",
+    "class": "Faucets",
+    "fine": "Kitchen Faucets",
+    "productName": "Kitchen Faucet"
+  },
+  "fitting": {
+    "family": "fitting",
+    "classpath": "Plumbing > Pipe / Tube / Hose Fittings",
+    "dept": "Plumbing",
+    "class": "Fittings",
+    "fine": "Pipe Fittings",
+    "productName": "Fitting"
+  },
+  "lighting": {
+    "family": "lighting",
+    "classpath": "Lighting > Indoor Lighting > Light Fixtures",
+    "dept": "Electrical",
+    "class": "Lighting",
+    "fine": "Fixtures",
+    "productName": "Light Fixture"
+  },
+  "decking": {
+    "family": "decking",
+    "classpath": "Building Materials > Exterior > Decking",
+    "dept": "Building Materials",
+    "class": "Decking",
+    "fine": "Composite Decking",
+    "productName": "Decking"
+  },
+  "abrasive": {
+    "family": "abrasive",
+    "classpath": "Tools & Hardware > Abrasives > Discs & Belts",
+    "dept": "Tools",
+    "class": "Abrasives",
+    "fine": "Sanding Discs & Belts",
+    "productName": "Abrasive"
+  },
+  "tool": {
+    "family": "tool",
+    "classpath": "Tools & Hardware > Power Tool Accessories",
+    "dept": "Tools",
+    "class": "Accessories",
+    "fine": "Power Tool Accessories",
+    "productName": "Tool Accessory"
+  },
+  "electrical": {
+    "family": "electrical",
+    "classpath": "Electrical > Wiring Devices > Switches & Outlets",
+    "dept": "Electrical",
+    "class": "Wiring Devices",
+    "fine": "Devices",
+    "productName": "Electrical Device"
+  },
+  "other": {
+    "family": "other",
+    "classpath": "General Merchandise > Unclassified",
+    "dept": "General",
+    "class": "Unclassified",
+    "fine": "Other",
+    "productName": "Product"
+  }
+}

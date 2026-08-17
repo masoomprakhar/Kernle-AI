@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
+  Download,
   Loader2,
   Play,
   Sparkles,
@@ -53,6 +54,30 @@ type EvalResult = {
   pendingSuggestionCount: number;
   mode: string;
   byField: Array<{ field: string; matched: number; total: number; rate: number }>;
+  deliveryFormatEval?: {
+    fieldAccuracy: number;
+    fieldsChecked: number;
+    fieldsMatched: number;
+  } | null;
+  deliveryFormatHeaderCount?: number;
+  scoredSubsetAccuracy?: number;
+  sampleItemCount?: number;
+};
+
+type DeliveryPreview = {
+  sku: string;
+  family: string;
+  needsHumanReview: boolean;
+  deliveryFormat: Record<string, string>;
+};
+
+type BatchResult = {
+  jobId: string;
+  rowCount: number;
+  needsReviewCount: number;
+  familyCounts: Record<string, number>;
+  preview: Record<string, string>[];
+  deliveryFormatHeaders: string[];
 };
 
 const STEPS = [
@@ -93,6 +118,8 @@ export default function IndustrialEnrichmentDemoPage() {
     suggestionCount: number;
     needsAttentionCount: number;
   } | null>(null);
+  const [deliveryPreview, setDeliveryPreview] = useState<DeliveryPreview | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
 
   const loadProducts = useCallback(async () => {
     const res = await api<{ items: Product[] }>("/pim/products?search=UNI-&pageSize=80");
@@ -166,12 +193,18 @@ export default function IndustrialEnrichmentDemoPage() {
         productCount: number;
         suggestionCount: number;
         needsAttentionCount: number;
+        deliveryPreviews?: DeliveryPreview[];
       }>("/ai/unilog/enrich", { method: "POST", body });
       setEnrichSummary({
         productCount: res.productCount,
         suggestionCount: res.suggestionCount,
         needsAttentionCount: res.needsAttentionCount,
       });
+      const preview =
+        res.deliveryPreviews?.find((p) => p.sku === selected?.sku) ||
+        res.deliveryPreviews?.[0] ||
+        null;
+      setDeliveryPreview(preview);
       await loadSuggestions(selectedId || undefined);
       setStep("accept");
     } catch (e) {
@@ -227,6 +260,58 @@ export default function IndustrialEnrichmentDemoPage() {
     }
   }
 
+  async function runBatch() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await api<BatchResult>("/ai/unilog/batch", {
+        method: "POST",
+        body: { source: "sample1000", limit: 50 },
+      });
+      setBatchResult(res);
+      if (res.preview?.[0]) {
+        setDeliveryPreview({
+          sku: res.preview[0]["SKU - MY_PART_NUMBER"] || res.preview[0]["Mfg_Part_Num"] || "",
+          family: "batch",
+          needsHumanReview: false,
+          deliveryFormat: res.preview[0],
+        });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Batch failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadCsv() {
+    setBusy(true);
+    setError("");
+    try {
+      if (!batchResult) {
+        const batch = await api<BatchResult>("/ai/unilog/batch", {
+          method: "POST",
+          body: { source: "sample1000", limit: 50 },
+        });
+        setBatchResult(batch);
+      }
+      const res = await api<{ csv: string; filename: string; rowCount: number }>(
+        "/ai/unilog/export",
+      );
+      const blob = new Blob([res.csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = res.filename || "kernle-delivery-format.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const stepIndex = STEPS.findIndex((s) => s.id === step);
   const rawDesc = selected?.values
     ? flattenPreview(selected.values.part_desc_raw) || flattenPreview(selected.values.mpn)
@@ -244,8 +329,8 @@ export default function IndustrialEnrichmentDemoPage() {
         </Link>
         <h1 className="mt-2 font-display text-display-md text-ink">Industrial enrichment</h1>
         <p className="mt-1 max-w-2xl text-body-md text-muted-foreground">
-          Messy distributor SKUs → classify, normalize, LOV-check, and describe — then Accept before
-          anything becomes live catalog data.
+          Messy distributor SKUs → classify, normalize, LOV-check, and describe into the frozen
+          252-column Delivery Format — then Accept before anything becomes live catalog data.
         </p>
       </div>
 
@@ -326,12 +411,26 @@ export default function IndustrialEnrichmentDemoPage() {
                 <Sparkles className="h-4 w-4" />
                 Enrich labelled set
               </Button>
+              <Button variant="outline" disabled={busy} onClick={() => void runBatch()}>
+                Batch sample (50)
+              </Button>
+              <Button variant="outline" disabled={busy} onClick={() => void downloadCsv()}>
+                <Download className="h-4 w-4" />
+                Download Delivery Format CSV
+              </Button>
             </div>
             {enrichSummary && (
               <p className="text-xs text-muted-foreground">
                 Last run: {enrichSummary.suggestionCount} suggestions across{" "}
                 {enrichSummary.productCount} products · {enrichSummary.needsAttentionCount} need
                 attention · never auto-committed
+              </p>
+            )}
+            {batchResult && (
+              <p className="text-xs text-muted-foreground">
+                Batch {batchResult.jobId.slice(0, 8)}: {batchResult.rowCount} Delivery Format rows ·{" "}
+                {batchResult.needsReviewCount} need review · headers{" "}
+                {batchResult.deliveryFormatHeaders?.length || 252}
               </p>
             )}
           </CardContent>
@@ -419,16 +518,52 @@ export default function IndustrialEnrichmentDemoPage() {
         </Card>
       </div>
 
+      {deliveryPreview && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery Format preview</CardTitle>
+            <CardDescription>
+              {deliveryPreview.sku} · {deliveryPreview.family}
+              {deliveryPreview.needsHumanReview ? " · needs human review" : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                "Classpath",
+                "BRAND_NAME",
+                "MANUFACTURER_NAME",
+                "MANUFACTURER_PART_NUMBER",
+                "INVOICE_DESC",
+                "MOBILE_DESC",
+                "SHORT_DESC",
+                "LONG_DESC1",
+                "Product Name",
+                "ATTRIBUTE_LABEL 1",
+                "ATTRIBUTE_VALUE 1",
+                "ATTRIBUTE_LABEL 2",
+                "ATTRIBUTE_VALUE 2",
+              ].map((key) => (
+                <Row key={key} label={key} value={deliveryPreview.deliveryFormat[key] || ""} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {evalResult && (
         <Card>
           <CardHeader>
             <CardTitle>Eval vs ground truth</CardTitle>
             <CardDescription>
               Labelled delivery fields · mode {evalResult.mode} · {evalResult.sampleSize} SKUs
+              {evalResult.deliveryFormatHeaderCount
+                ? ` · ${evalResult.deliveryFormatHeaderCount} Delivery Format headers`
+                : ""}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <Metric
                 label="Field accuracy"
                 value={formatPercent(evalResult.fieldAccuracy * 100)}
@@ -449,6 +584,20 @@ export default function IndustrialEnrichmentDemoPage() {
                 value={String(evalResult.needsReviewCount)}
                 hint={`${evalResult.pendingSuggestionCount} pending`}
               />
+              {evalResult.deliveryFormatEval && (
+                <Metric
+                  label="Golden DF accuracy"
+                  value={formatPercent(evalResult.deliveryFormatEval.fieldAccuracy * 100)}
+                  hint={`${evalResult.deliveryFormatEval.fieldsMatched}/${evalResult.deliveryFormatEval.fieldsChecked}`}
+                />
+              )}
+              {evalResult.scoredSubsetAccuracy != null && (
+                <Metric
+                  label="Sample subset"
+                  value={formatPercent(evalResult.scoredSubsetAccuracy * 100)}
+                  hint={`${evalResult.sampleItemCount || 0} sample rows`}
+                />
+              )}
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {evalResult.byField.slice(0, 9).map((f) => (

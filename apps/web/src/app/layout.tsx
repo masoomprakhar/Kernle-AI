@@ -28,6 +28,12 @@ export const metadata: Metadata = {
     "Enrich, govern, and syndicate product data with an editorial-grade PIM workspace.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover" as const,
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>

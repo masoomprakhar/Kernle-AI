@@ -38,14 +38,29 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+type SidebarProps = {
+  onNavigate?: () => void;
+  className?: string;
+};
+
+export function Sidebar({ onNavigate, className }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-hairline bg-canvas">
-      <div className="flex h-16 items-center px-5">
-        <Link href="/dashboard" className="inline-flex items-center" aria-label="Kernle AI">
+    <aside
+      className={cn(
+        "flex h-full w-60 shrink-0 flex-col border-r border-hairline bg-canvas",
+        className,
+      )}
+    >
+      <div className="flex h-14 items-center px-5 sm:h-16">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center"
+          aria-label="Kernle AI"
+          onClick={onNavigate}
+        >
           <BrandLogo size="sm" priority />
         </Link>
       </div>
@@ -57,6 +72,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2.5 rounded-md px-3 py-2 text-body-md transition-colors",
                 active
@@ -72,6 +88,7 @@ export function Sidebar() {
         {user?.isSuperAdmin && (
           <Link
             href="/admin"
+            onClick={onNavigate}
             className={cn(
               "mt-2 flex items-center gap-2.5 rounded-md px-3 py-2 text-body-md",
               pathname.startsWith("/admin")

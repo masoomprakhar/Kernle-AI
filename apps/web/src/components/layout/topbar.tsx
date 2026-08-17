@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,14 +21,29 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function Topbar() {
+type TopbarProps = {
+  onMenuClick?: () => void;
+};
+
+export function Topbar({ onMenuClick }: TopbarProps) {
   const { user, workspaceId, orgId, selectWorkspace, selectOrg, logout } = useAuth();
   const router = useRouter();
   const workspaces = user?.workspaces.filter((w) => w.organizationId === orgId) || [];
   const memberships = user?.memberships || [];
 
   return (
-    <header className="flex h-16 items-center gap-3 border-b border-hairline bg-canvas px-5">
+    <header className="flex h-14 items-center gap-2 border-b border-hairline bg-canvas px-3 sm:h-16 sm:gap-3 sm:px-5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="shrink-0 md:hidden"
+        aria-label="Open navigation"
+        onClick={onMenuClick}
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
+
       <div className="hidden w-52 md:block">
         <Select
           value={workspaceId || undefined}
@@ -55,18 +70,32 @@ export function Topbar() {
         </Select>
       </div>
 
-      <div className="relative max-w-md flex-1">
+      <div className="relative min-w-0 max-w-md flex-1">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-        <Input className="pl-9" placeholder="Search products, SKUs, assets…" disabled />
+        <Input
+          className="pl-9"
+          placeholder="Search…"
+          disabled
+          aria-label="Search products, SKUs, assets"
+        />
       </div>
 
-      <div className="ml-auto flex items-center gap-2">
-        <Button variant="icon" size="icon" aria-label="Notifications">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <Button
+          variant="icon"
+          size="icon"
+          aria-label="Notifications"
+          className="hidden sm:inline-flex"
+        >
           <Bell className="h-4 w-4" />
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm" className="max-w-[180px] truncate py-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="max-w-[120px] truncate py-2 sm:max-w-[180px]"
+            >
               {user?.name || user?.email || "Account"}
             </Button>
           </DropdownMenuTrigger>
@@ -94,6 +123,22 @@ export function Topbar() {
                 <DropdownMenuSeparator />
               </>
             )}
+            <div className="md:hidden">
+              <DropdownMenuLabel className="text-xs text-muted">Workspace</DropdownMenuLabel>
+              {workspaces.map((w) => (
+                <DropdownMenuItem
+                  key={w.id}
+                  onClick={() => {
+                    selectWorkspace(w.id);
+                    router.refresh();
+                  }}
+                >
+                  {w.name}
+                  {w.id === workspaceId ? " ✓" : ""}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+            </div>
             <DropdownMenuItem onClick={() => router.push("/settings")}>Settings</DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {

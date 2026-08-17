@@ -1,0 +1,233 @@
+{
+  "dishwasher": {
+    "classpath": "Appliances & Consumer Electronics>Kitchen Appliances>Built-In Dishwashers",
+    "attributes": {
+      "Series": [
+        "Professional Series"
+      ],
+      "Number of Wash Cycles": [
+        "3",
+        "4",
+        "5",
+        "6"
+      ],
+      "Voltage Rating": [
+        "120",
+        "240"
+      ],
+      "Amperage Rating": [
+        "15",
+        "20"
+      ],
+      "Mounting Type": [
+        "Leg",
+        "Built-In",
+        "Portable"
+      ],
+      "Material": [
+        "Stainless Steel",
+        "Plastic",
+        "Porcelain"
+      ],
+      "Sound Level": [
+        "42",
+        "44",
+        "47",
+        "50",
+        "54"
+      ]
+    },
+    "attributeOrder": [
+      "Series",
+      "Model",
+      "Number of Wash Cycles",
+      "Voltage Rating",
+      "Amperage Rating",
+      "Mounting Type",
+      "Plug Type",
+      "Size",
+      "Depth With Door Open",
+      "Sound Level",
+      "Material"
+    ]
+  },
+  "lighting": {
+    "classpath": "Lighting > Indoor Lighting > Light Fixtures",
+    "attributes": {
+      "Bulb Type": [
+        "LED",
+        "Incandescent",
+        "Halogen",
+        "CFL"
+      ],
+      "Finish": [
+        "Brushed Nickel",
+        "Chrome",
+        "Black",
+        "White",
+        "Bronze"
+      ],
+      "Mounting Type": [
+        "Ceiling",
+        "Wall",
+        "Recessed",
+        "Pendant",
+        "Flush Mount"
+      ],
+      "Wattage": [
+        "5",
+        "9",
+        "10",
+        "15",
+        "20",
+        "40",
+        "60"
+      ],
+      "Voltage Rating": [
+        "120",
+        "12",
+        "24"
+      ]
+    },
+    "attributeOrder": [
+      "Bulb Type",
+      "Finish",
+      "Mounting Type",
+      "Wattage",
+      "Voltage Rating",
+      "Size"
+    ]
+  },
+  "decking": {
+    "classpath": "Building Materials > Exterior > Decking",
+    "attributes": {
+      "Material": [
+        "Composite",
+        "PVC",
+        "Wood",
+        "Aluminum"
+      ],
+      "Color": [
+        "Brown",
+        "Gray",
+        "Cedar",
+        "Mahogany",
+        "Black",
+        "White"
+      ],
+      "Profile": [
+        "Grooved",
+        "Solid",
+        "Fascia",
+        "Railing"
+      ]
+    },
+    "attributeOrder": [
+      "Material",
+      "Color",
+      "Profile",
+      "Size"
+    ]
+  },
+  "abrasive": {
+    "classpath": "Tools & Hardware > Abrasives > Discs & Belts",
+    "attributes": {
+      "Grit": [
+        "P40",
+        "P60",
+        "P80",
+        "P100",
+        "P120",
+        "P150",
+        "P180",
+        "P220"
+      ],
+      "Abrasive Type": [
+        "Sanding Belt",
+        "Sanding Disc",
+        "Sheet",
+        "Roll"
+      ],
+      "Backing": [
+        "Film",
+        "Paper",
+        "Cloth"
+      ],
+      "Brand Line": [
+        "Cubitron II",
+        "Stikit",
+        "Diablo"
+      ]
+    },
+    "attributeOrder": [
+      "Abrasive Type",
+      "Grit",
+      "Backing",
+      "Brand Line",
+      "Size"
+    ]
+  },
+  "tool": {
+    "classpath": "Tools & Hardware > Power Tool Accessories",
+    "attributes": {
+      "Tool Type": [
+        "Drill Bit",
+        "Saw Blade",
+        "Driver Bit",
+        "Hole Saw",
+        "Accessory"
+      ],
+      "Material": [
+        "Carbide",
+        "HSS",
+        "Diamond",
+        "Steel"
+      ],
+      "Shank": [
+        "Hex",
+        "Round",
+        "SDS"
+      ]
+    },
+    "attributeOrder": [
+      "Tool Type",
+      "Material",
+      "Shank",
+      "Size"
+    ]
+  },
+  "electrical": {
+    "classpath": "Electrical > Wiring Devices > Switches & Outlets",
+    "attributes": {
+      "Device Type": [
+        "Switch",
+        "Outlet",
+        "Dimmer",
+        "GFCI",
+        "Cover Plate"
+      ],
+      "Amperage Rating": [
+        "15",
+        "20",
+        "30"
+      ],
+      "Voltage Rating": [
+        "120",
+        "240",
+        "277"
+      ],
+      "Color": [
+        "White",
+        "Ivory",
+        "Black",
+        "Gray"
+      ]
+    },
+    "attributeOrder": [
+      "Device Type",
+      "Amperage Rating",
+      "Voltage Rating",
+      "Color"
+    ]
+  }
+}

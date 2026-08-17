@@ -152,3 +152,54 @@ export function valuesFromProductJson(values: Record<string, unknown> | null | u
   }
   return out;
 }
+
+const DELIVERY_SCORE_FIELDS = [
+  'Classpath',
+  'BRAND_NAME',
+  'MANUFACTURER_NAME',
+  'MANUFACTURER_PART_NUMBER',
+  'INVOICE_DESC',
+  'MOBILE_DESC',
+  'SHORT_DESC',
+  'LONG_DESC1',
+  'Product Name',
+  'Dept',
+  'Class',
+  'Fine',
+] as const;
+
+/** Score a Delivery Format prediction against a golden Delivery Format row. */
+export function scoreDeliveryFormatRow(input: {
+  expected: Record<string, string>;
+  actual: Record<string, string>;
+  fields?: readonly string[];
+}): {
+  fieldsChecked: number;
+  fieldsMatched: number;
+  fieldAccuracy: number;
+  byField: Array<{ field: string; matched: boolean; expected: string; actual: string }>;
+} {
+  const fields = input.fields || DELIVERY_SCORE_FIELDS;
+  const byField: Array<{ field: string; matched: boolean; expected: string; actual: string }> = [];
+  let fieldsChecked = 0;
+  let fieldsMatched = 0;
+  for (const field of fields) {
+    const expected = (input.expected[field] || '').trim();
+    if (!expected) continue;
+    const actual = (input.actual[field] || '').trim();
+    fieldsChecked += 1;
+    const matched =
+      !!actual &&
+      (norm(actual) === norm(expected) ||
+        norm(actual).includes(norm(expected)) ||
+        norm(expected).includes(norm(actual)));
+    if (matched) fieldsMatched += 1;
+    byField.push({ field, matched, expected, actual });
+  }
+  return {
+    fieldsChecked,
+    fieldsMatched,
+    fieldAccuracy: fieldsChecked ? fieldsMatched / fieldsChecked : 0,
+    byField,
+  };
+}

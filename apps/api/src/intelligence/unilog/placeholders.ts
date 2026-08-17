@@ -1,5 +1,5 @@
 const PLACEHOLDER_RE =
-  /^\s*(--\s*)?(unbranded|no unilog brand|no dib brand)(\s*--)?\s*$/i;
+  /^\s*(--\s*)?(unbranded|no unilog brand|no dib brand|commodity\s*-\s*unbranded)(\s*--)?\s*$/i;
 
 export function isPlaceholderBrand(value: string | null | undefined): boolean {
   if (value == null) return true;

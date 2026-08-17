@@ -30,8 +30,17 @@
       "Socket Weld",
       "Threaded"
     ],
-    "angle": ["90 deg", "45 deg", "Straight"],
-    "pressure_class": ["150#", "300#", "Schedule 40", "Schedule 80"]
+    "angle": [
+      "90 deg",
+      "45 deg",
+      "Straight"
+    ],
+    "pressure_class": [
+      "150#",
+      "300#",
+      "Schedule 40",
+      "Schedule 80"
+    ]
   },
   "connectionAliases": {
     "THR": "Threaded",

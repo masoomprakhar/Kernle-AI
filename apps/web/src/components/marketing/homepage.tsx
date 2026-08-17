@@ -4,14 +4,8 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { FaqSection } from "@/components/marketing/faq";
 import { HeroDemo } from "@/components/marketing/hero-demo";
-
-const NAV = [
-  ["#platform", "Platform"],
-  ["#method", "Method"],
-  ["#intelligence", "Intelligence"],
-  ["#changelog", "Changelog"],
-  ["#faq", "FAQ"],
-];
+import { HomeAuthModal } from "@/components/marketing/home-auth-modal";
+import { MarketingNav } from "@/components/marketing/marketing-nav";
 
 const STORIES = [
   { label: "Retail catalogs", href: "#platform" },
@@ -214,13 +208,17 @@ const PANELS = {
 export function Homepage() {
   return (
     <div className="mkt-page min-h-screen bg-canvas text-body antialiased">
+      <HomeAuthModal />
       {/* Announcement — Attio-style top bar */}
       <div className="border-b border-hairline bg-surface-soft">
-        <div className="mx-auto flex max-w-[1200px] items-center justify-between gap-3 px-6 py-2.5 text-[13px] md:px-8">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-2 px-4 py-2.5 text-[13px] sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6 md:px-8">
           <p className="text-body">
             <span className="font-medium text-ink">Now live</span>
             <span className="mx-2 text-hairline">·</span>
-            The first release of Kernle AI. Product data that thinks ahead.
+            <span className="sm:hidden">Kernle AI is here.</span>
+            <span className="hidden sm:inline">
+              The first release of Kernle AI. Product data that thinks ahead.
+            </span>
           </p>
           <a
             href="#changelog"
@@ -232,65 +230,40 @@ export function Homepage() {
         </div>
       </div>
 
-      {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-hairline/80 bg-canvas/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-6 md:px-8">
-          <Link href="/" className="inline-flex items-center" aria-label="Kernle AI">
-            <BrandLogo size="md" priority />
-          </Link>
-          <nav className="hidden items-center gap-7 text-[14px] text-body md:flex">
-            {NAV.map(([href, label]) => (
-              <a key={href} href={href} className="transition-colors hover:text-ink">
-                {label}
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/signup">
-                Start free
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <MarketingNav />
 
       {/* Hero — Attio: big claim + dual CTA + interactive product */}
       <section className="relative overflow-hidden">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(ellipse_at_top,rgba(69,143,255,0.22),transparent_55%)]"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_at_top,rgba(69,143,255,0.22),transparent_55%)] sm:h-[520px]"
         />
-        <div className="relative mx-auto max-w-[1200px] px-6 pb-16 pt-16 md:px-8 md:pb-24 md:pt-24">
+        <div className="relative mx-auto max-w-[1200px] px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-16 md:px-8 md:pb-24 md:pt-24">
           <div className="mx-auto max-w-[760px] text-center">
-            <p className="mkt-reveal text-[12px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="mkt-reveal text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground sm:text-[12px]">
               Product data, handled
             </p>
-            <h1 className="mkt-reveal mkt-reveal-delay-1 mt-5 font-display text-display-xl tracking-[-0.03em] text-ink md:text-[56px] md:leading-[1.05]">
+            <h1 className="mkt-reveal mkt-reveal-delay-1 mt-4 font-display text-[32px] leading-[1.12] tracking-[-0.03em] text-ink sm:mt-5 sm:text-display-xl md:text-[56px] md:leading-[1.05]">
               Your catalog, finally in one place and finally intelligent.
             </h1>
-            <p className="mkt-reveal mkt-reveal-delay-2 mx-auto mt-6 max-w-[52ch] text-[17px] leading-[1.6] text-body">
+            <p className="mkt-reveal mkt-reveal-delay-2 mx-auto mt-4 max-w-[52ch] text-[15px] leading-[1.6] text-body sm:mt-6 sm:text-[17px]">
               Kernle AI centralizes, enriches, and ships product data to storefronts, marketplaces,
               print, and the AI systems that recommend you. One source of truth. Zero spreadsheets.
             </p>
-            <div className="mkt-reveal mkt-reveal-delay-3 mt-9 flex flex-wrap items-center justify-center gap-3">
-              <Button asChild>
+            <div className="mkt-reveal mkt-reveal-delay-3 mt-7 flex w-full flex-col items-stretch justify-center gap-3 sm:mt-9 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+              <Button asChild className="w-full sm:w-auto">
                 <Link href="/signup">
                   Start free
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button variant="secondary" asChild>
+              <Button variant="secondary" asChild className="w-full sm:w-auto">
                 <Link href="#method">See the method</Link>
               </Button>
             </div>
           </div>
 
-          <div className="mkt-reveal mkt-reveal-delay-4 mx-auto mt-14 max-w-[980px] md:mt-16">
+          <div className="mkt-reveal mkt-reveal-delay-4 mx-auto mt-10 max-w-[980px] sm:mt-14 md:mt-16">
             <HeroDemo />
           </div>
         </div>
@@ -298,7 +271,7 @@ export function Homepage() {
 
       {/* Story / audience strip — Attio customer stories row */}
       <section className="border-y border-hairline">
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-6 py-8 md:flex-row md:items-center md:justify-between md:px-8">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-5 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between md:px-8">
           <p className="text-[13px] text-muted-foreground">
             Where growing catalogs go to stop being messy
           </p>
@@ -319,11 +292,11 @@ export function Homepage() {
 
       {/* Platform — Attio-style large system statement + nested modules */}
       <section id="platform" className="scroll-mt-20 border-b border-hairline">
-        <div className="mx-auto max-w-[1200px] px-6 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 sm:py-20 md:px-8 md:py-28">
           <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Platform
           </p>
-          <h2 className="mt-4 max-w-[22ch] font-display text-display-lg tracking-[-0.025em] text-ink md:text-[44px] md:leading-[1.12]">
+          <h2 className="mt-4 max-w-[22ch] font-display text-[28px] leading-[1.15] tracking-[-0.025em] text-ink sm:text-display-lg md:text-[44px] md:leading-[1.12]">
             The catalog system that stays accurate. Structures once. Enriches with review. Publishes
             everywhere it needs to go.
           </h2>
@@ -344,7 +317,7 @@ export function Homepage() {
               return (
                 <div
                   key={pillar.title}
-                  className={`grid items-center gap-8 rounded-lg p-6 md:grid-cols-2 md:gap-12 md:p-10 ${wash}`}
+                  className={`grid items-center gap-6 rounded-lg p-4 sm:gap-8 sm:p-6 md:grid-cols-2 md:gap-12 md:p-10 ${wash}`}
                 >
                   <div>
                     <h3 className="font-display text-display-md tracking-[-0.02em] text-ink md:text-[28px]">
@@ -402,12 +375,12 @@ export function Homepage() {
 
       {/* Self-building analog — Live from day one */}
       <section className="border-b border-hairline bg-surface-soft">
-        <div className="mx-auto grid max-w-[1200px] items-center gap-12 px-6 py-20 md:grid-cols-2 md:px-8 md:py-28">
+        <div className="mx-auto grid max-w-[1200px] items-center gap-10 px-4 py-14 sm:gap-12 sm:px-6 sm:py-20 md:grid-cols-2 md:px-8 md:py-28">
           <div>
             <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
               Live from day one
             </p>
-            <h2 className="mt-4 max-w-[16ch] font-display text-display-lg tracking-[-0.025em] text-ink md:text-[40px]">
+            <h2 className="mt-4 max-w-[16ch] font-display text-[28px] leading-[1.15] tracking-[-0.025em] text-ink sm:text-display-lg md:text-[40px]">
               Import once. The catalog organizes around how you sell.
             </h2>
             <p className="mt-5 max-w-[42ch] text-[15px] leading-[1.65] text-body">
@@ -449,11 +422,11 @@ export function Homepage() {
 
       {/* Universal context analog */}
       <section id="intelligence" className="scroll-mt-20 border-b border-hairline">
-        <div className="mx-auto max-w-[1200px] px-6 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 sm:py-20 md:px-8 md:py-28">
           <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Intelligence
           </p>
-          <h2 className="mt-4 max-w-[20ch] font-display text-display-lg tracking-[-0.025em] text-ink md:text-[44px]">
+          <h2 className="mt-4 max-w-[20ch] font-display text-[28px] leading-[1.15] tracking-[-0.025em] text-ink sm:text-display-lg md:text-[44px]">
             Your product data now has two audiences: people, and machines.
           </h2>
           <p className="mt-5 max-w-[54ch] text-[16px] leading-[1.65] text-body">
@@ -509,11 +482,11 @@ export function Homepage() {
 
       {/* Method — Attio clean 3-up */}
       <section id="method" className="scroll-mt-20 border-b border-hairline bg-surface-soft">
-        <div className="mx-auto max-w-[1200px] px-6 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 sm:py-20 md:px-8 md:py-28">
           <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             Method
           </p>
-          <h2 className="mt-4 max-w-[18ch] font-display text-display-lg tracking-[-0.025em] text-ink md:text-[40px]">
+          <h2 className="mt-4 max-w-[18ch] font-display text-[28px] leading-[1.15] tracking-[-0.025em] text-ink sm:text-display-lg md:text-[40px]">
             From messy to market-ready in three steps.
           </h2>
           <div className="mt-12 grid gap-4 md:grid-cols-3">
@@ -532,8 +505,8 @@ export function Homepage() {
 
       {/* Evidence + pricing teaser */}
       <section className="border-b border-hairline">
-        <div className="mx-auto grid max-w-[1200px] gap-6 px-6 py-20 md:grid-cols-2 md:px-8 md:py-24">
-          <div className="rounded-lg bg-[rgba(37,79,173,0.06)] p-8 md:p-10">
+        <div className="mx-auto grid max-w-[1200px] gap-4 px-4 py-14 sm:gap-6 sm:px-6 sm:py-20 md:grid-cols-2 md:px-8 md:py-24">
+          <div className="rounded-lg bg-[rgba(37,79,173,0.06)] p-6 sm:p-8 md:p-10">
             <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Evidence
             </p>
@@ -547,7 +520,7 @@ export function Homepage() {
           </div>
           <div
             id="pricing"
-            className="scroll-mt-20 rounded-lg bg-[rgba(69,143,255,0.14)] p-8 md:p-10"
+            className="scroll-mt-20 rounded-lg bg-[rgba(69,143,255,0.14)] p-6 sm:p-8 md:p-10"
           >
             <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Commercial
@@ -569,13 +542,13 @@ export function Homepage() {
 
       {/* Changelog — Attio pattern */}
       <section id="changelog" className="scroll-mt-20 border-b border-hairline">
-        <div className="mx-auto max-w-[1200px] px-6 py-20 md:px-8 md:py-28">
+        <div className="mx-auto max-w-[1200px] px-4 py-14 sm:px-6 sm:py-20 md:px-8 md:py-28">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
               <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
                 Changelog
               </p>
-              <h2 className="mt-4 max-w-[16ch] font-display text-display-lg tracking-[-0.025em] text-ink md:text-[40px]">
+              <h2 className="mt-4 max-w-[16ch] font-display text-[28px] leading-[1.15] tracking-[-0.025em] text-ink sm:text-display-lg md:text-[40px]">
                 Better as you grow.
               </h2>
             </div>
@@ -600,12 +573,12 @@ export function Homepage() {
 
       {/* FAQ */}
       <section id="faq" className="scroll-mt-20 border-b border-hairline">
-        <div className="mx-auto grid max-w-[1200px] gap-12 px-6 py-20 md:grid-cols-12 md:px-8 md:py-28">
+        <div className="mx-auto grid max-w-[1200px] gap-10 px-4 py-14 sm:gap-12 sm:px-6 sm:py-20 md:grid-cols-12 md:px-8 md:py-28">
           <div className="md:col-span-4">
             <p className="text-[12px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
               FAQ
             </p>
-            <h2 className="mt-4 font-display text-display-md tracking-[-0.02em] text-ink md:text-[36px]">
+            <h2 className="mt-4 font-display text-[28px] tracking-[-0.02em] text-ink sm:text-display-md md:text-[36px]">
               Direct answers.
             </h2>
             <p className="mt-4 text-[14px] leading-[1.65] text-body">
@@ -620,21 +593,21 @@ export function Homepage() {
 
       {/* Final CTA — Attio closing band */}
       <section className="border-b border-hairline bg-surface-soft">
-        <div className="mx-auto max-w-[1200px] px-6 py-24 text-center md:px-8 md:py-32">
-          <h2 className="mx-auto max-w-[16ch] font-display text-display-lg tracking-[-0.03em] text-ink md:text-[48px] md:leading-[1.08]">
+        <div className="mx-auto max-w-[1200px] px-4 py-16 text-center sm:px-6 sm:py-24 md:px-8 md:py-32">
+          <h2 className="mx-auto max-w-[16ch] font-display text-[28px] leading-[1.15] tracking-[-0.03em] text-ink sm:text-display-lg md:text-[48px] md:leading-[1.08]">
             Your catalog is ready for this. Is your data?
           </h2>
           <p className="mx-auto mt-5 max-w-[42ch] text-[16px] leading-[1.65] text-body">
             Bring your product data into one place, and let Kernle AI help you keep it that way.
           </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild>
+          <div className="mt-8 flex w-full flex-col items-stretch justify-center gap-3 sm:mt-10 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            <Button asChild className="w-full sm:w-auto">
               <Link href="/signup">
                 Start free
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="secondary" asChild>
+            <Button variant="secondary" asChild className="w-full sm:w-auto">
               <Link href="/signup">Talk to sales</Link>
             </Button>
           </div>
@@ -642,9 +615,9 @@ export function Homepage() {
       </section>
 
       <footer className="bg-canvas">
-        <div className="mx-auto max-w-[1200px] px-6 py-16 md:px-8">
-          <div className="grid gap-10 md:grid-cols-5">
-            <div>
+        <div className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6 sm:py-16 md:px-8">
+          <div className="grid grid-cols-2 gap-8 sm:gap-10 md:grid-cols-5">
+            <div className="col-span-2 md:col-span-1">
               <BrandLogo size="sm" />
               <p className="mt-3 max-w-[28ch] text-[13px] leading-relaxed text-muted-foreground">
                 Product data infrastructure for teams that ship across channels.

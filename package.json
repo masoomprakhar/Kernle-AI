@@ -20,7 +20,8 @@
     "load:intelligence": "node scripts/load-intelligence.mjs",
     "e2e:intelligence": "node scripts/e2e-intelligence.mjs",
     "e2e:unilog": "node scripts/e2e-unilog.mjs",
-    "probe:apis": "node scripts/probe-apis.mjs"
+    "probe:apis": "node scripts/probe-apis.mjs",
+    "build:unilog-pack": "node scripts/build-unilog-pack.mjs"
   },
   "engines": {
     "node": ">=20"

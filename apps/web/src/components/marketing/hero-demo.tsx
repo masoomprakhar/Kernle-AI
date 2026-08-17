@@ -234,26 +234,28 @@ export function HeroDemo() {
 
   return (
     <div className="mkt-stage overflow-hidden rounded-lg border border-hairline bg-canvas shadow-cta-soft">
-      <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-surface-strong" />
-          <span className="h-2.5 w-2.5 rounded-full bg-surface-strong" />
-          <span className="h-2.5 w-2.5 rounded-full bg-surface-strong" />
-          <span className="ml-2 text-[13px] font-medium text-ink">Catalog workspace</span>
+      <div className="flex items-center justify-between gap-2 border-b border-hairline px-3 py-2.5 sm:px-4 sm:py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="hidden h-2.5 w-2.5 rounded-full bg-surface-strong sm:inline-block" />
+          <span className="hidden h-2.5 w-2.5 rounded-full bg-surface-strong sm:inline-block" />
+          <span className="hidden h-2.5 w-2.5 rounded-full bg-surface-strong sm:inline-block" />
+          <span className="truncate text-[12px] font-medium text-ink sm:ml-2 sm:text-[13px]">
+            Catalog workspace
+          </span>
         </div>
-        <span className="rounded-pill bg-surface-soft px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-          Ask Kernle AI · demo
+        <span className="shrink-0 rounded-pill bg-surface-soft px-2 py-1 text-[10px] font-medium text-muted-foreground sm:px-2.5 sm:text-[11px]">
+          Ask Kernle · demo
         </span>
       </div>
 
       <div className="grid lg:grid-cols-[1.05fr_1fr]">
-        <div className="flex flex-col border-b border-hairline p-4 md:p-5 lg:border-b-0 lg:border-r">
+        <div className="flex flex-col border-b border-hairline p-3 sm:p-4 md:p-5 lg:border-b-0 lg:border-r">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[12px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 Ask Kernle
               </p>
-              <p className="mt-1 text-[13px] text-body">
+              <p className="mt-1 text-[12px] text-body sm:text-[13px]">
                 Constrained catalog AI — search, completeness, Accept-gated enrichment.
               </p>
             </div>
@@ -266,14 +268,14 @@ export function HeroDemo() {
             </Link>
           </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="-mx-3 mt-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
             {PROMPTS.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => runPrompt(item.id)}
                 className={cn(
-                  "rounded-pill bg-canvas px-3 py-1.5 text-[12px] font-medium text-body shadow-[0_1px_2px_rgba(24,29,38,0.06),0_4px_12px_rgba(24,29,38,0.06)] transition-[box-shadow,color]",
+                  "shrink-0 rounded-pill bg-canvas px-3 py-1.5 text-[12px] font-medium text-body shadow-[0_1px_2px_rgba(24,29,38,0.06),0_4px_12px_rgba(24,29,38,0.06)] transition-[box-shadow,color]",
                   promptId === item.id && !customPanel
                     ? "text-ink shadow-[0_1px_2px_rgba(24,29,38,0.08),0_6px_16px_rgba(24,29,38,0.1)]"
                     : "hover:shadow-[0_1px_2px_rgba(24,29,38,0.08),0_6px_16px_rgba(24,29,38,0.1)]",
@@ -321,8 +323,8 @@ export function HeroDemo() {
               id="ask-kernle-hero"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about completeness, enrichment, distributor SKUs…"
-              className="h-10 flex-1 rounded-md border border-hairline bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-muted-foreground focus:border-ink/30"
+              placeholder="Ask about completeness or enrichment…"
+              className="h-10 min-w-0 flex-1 rounded-md border border-hairline bg-canvas px-3 text-[13px] text-ink outline-none placeholder:text-muted-foreground focus:border-ink/30"
               disabled={typing}
             />
             <button
@@ -336,38 +338,41 @@ export function HeroDemo() {
           </form>
         </div>
 
-        <div className="bg-surface-soft/60 p-4 md:p-5">
+        <div className="bg-surface-soft/60 p-3 sm:p-4 md:p-5">
           <div className="flex items-end justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[12px] font-medium text-muted-foreground">Channel readiness</p>
-              <p className="mt-0.5 text-[16px] font-medium tracking-[-0.02em] text-ink">
+              <p className="mt-0.5 truncate text-[14px] font-medium tracking-[-0.02em] text-ink sm:text-[16px]">
                 {panel.channel}
               </p>
             </div>
-            <p className="font-display text-[36px] leading-none tracking-[-0.03em] text-link">
+            <p className="shrink-0 font-display text-[28px] leading-none tracking-[-0.03em] text-link sm:text-[36px]">
               {panel.readiness}%
             </p>
           </div>
 
           <div className="mt-4 overflow-hidden rounded-md border border-hairline bg-canvas">
-            <div className="grid grid-cols-[1.3fr_0.7fr_0.5fr] gap-2 border-b border-hairline bg-surface-soft px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+            <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-hairline bg-surface-soft px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground sm:grid-cols-[1.3fr_0.7fr_0.5fr]">
               <span>Product</span>
-              <span>Family</span>
+              <span className="hidden sm:inline">Family</span>
               <span>Score</span>
             </div>
             {panel.rows.map((row) => (
               <div
                 key={row.sku}
-                className="grid grid-cols-[1.3fr_0.7fr_0.5fr] items-center gap-2 border-b border-hairline px-3 py-3 last:border-b-0"
+                className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-hairline px-3 py-3 last:border-b-0 sm:grid-cols-[1.3fr_0.7fr_0.5fr]"
               >
                 <div className="min-w-0">
                   <p className="truncate text-[13px] font-medium text-ink">{row.name}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">{row.sku}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    <span className="sm:hidden">{row.family} · </span>
+                    {row.sku}
+                  </p>
                 </div>
-                <p className="truncate text-[12px] text-body">{row.family}</p>
+                <p className="hidden truncate text-[12px] text-body sm:block">{row.family}</p>
                 <div>
                   <p className="text-[12px] font-medium tabular-nums text-ink">{row.pct}%</p>
-                  <div className="mt-1 h-1 w-14 overflow-hidden rounded-full bg-surface-soft">
+                  <div className="mt-1 h-1 w-12 overflow-hidden rounded-full bg-surface-soft sm:w-14">
                     <div className="h-full rounded-full bg-link" style={{ width: `${row.pct}%` }} />
                   </div>
                 </div>

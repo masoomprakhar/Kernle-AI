@@ -51,9 +51,9 @@ export function AskKernleWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+    <div className="fixed bottom-4 right-4 z-40 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3 sm:bottom-5 sm:right-5">
       {open && (
-        <div className="flex h-[420px] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-hairline bg-canvas animate-fade-in">
+        <div className="flex h-[min(420px,70dvh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-hairline bg-canvas animate-fade-in">
           <div className="flex items-center justify-between border-b border-hairline bg-ink px-4 py-3 text-white">
             <div>
               <p className="font-display text-title-sm">Ask Kernle</p>
@@ -102,7 +102,7 @@ export function AskKernleWidget() {
           </div>
         </div>
       )}
-      <Button onClick={() => setOpen((v) => !v)}>
+      <Button onClick={() => setOpen((v) => !v)} className="shadow-cta-soft">
         <MessageCircle className="h-4 w-4" />
         Ask Kernle
       </Button>

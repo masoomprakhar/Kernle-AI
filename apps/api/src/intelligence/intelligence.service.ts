@@ -26,13 +26,18 @@ import {
 } from './incremental';
 import { EXTRACT_QUEUE } from './queues';
 import { loadUnilogPack } from './unilog/load-data';
-import { enrichFromRaw } from './unilog/extract';
+import { enrichToDeliveryFormat } from './unilog/extract';
 import { cleanBrandCandidates } from './unilog/placeholders';
 import {
   scoreAgainstGroundTruth,
+  scoreDeliveryFormatRow,
   valuesFromProductJson,
 } from './unilog/eval';
+import { exportDeliveryFormatCsv } from './unilog/export-csv';
+import { dedupeItems } from './unilog/dedupe';
+import { getBatchJob, saveBatchJob, type BatchJobSummary } from './unilog/batch-store';
 import { flattenValue } from './consistency';
+import { randomUUID } from 'crypto';
 
 export { EXTRACT_QUEUE, FILL_QUEUE } from './queues';
 
@@ -901,6 +906,12 @@ export class IntelligenceService implements OnModuleInit {
     const rawBySku = new Map(pack.rawItems.map((r) => [r.sku, r]));
     const created = [];
     let needsAttentionCount = 0;
+    const deliveryPreviews: Array<{
+      sku: string;
+      deliveryFormat: Record<string, string>;
+      family: string;
+      needsHumanReview: boolean;
+    }> = [];
 
     for (const product of products) {
       const values = (product.values as Record<string, unknown>) || {};
@@ -927,7 +938,7 @@ export class IntelligenceService implements OnModuleInit {
       const family = families.find((f) => f.id === product.familyId);
       const familyHint = family?.code || raw?.familyHint || null;
 
-      const proposals = enrichFromRaw({
+      const enriched = enrichToDeliveryFormat({
         partDesc,
         mpn,
         brandHints,
@@ -935,6 +946,20 @@ export class IntelligenceService implements OnModuleInit {
         brandMaster: pack.brandMaster,
         uomRules: pack.uomRules,
         lov: pack.lov,
+        headers: pack.deliveryFormatHeaders,
+        taxonomy: pack.taxonomy,
+        e1Brand: raw?.e1Brand,
+        unilogBrand: raw?.unilogBrand,
+        dibBrand: raw?.dibBrand,
+        partManuf: raw?.partManuf,
+        sku: product.sku,
+      });
+      const proposals = enriched.proposals;
+      deliveryPreviews.push({
+        sku: product.sku,
+        deliveryFormat: enriched.deliveryFormat,
+        family: enriched.family,
+        needsHumanReview: enriched.needsHumanReview,
       });
 
       const codes = proposals.map((p) => p.attributeCode);
@@ -1031,6 +1056,155 @@ export class IntelligenceService implements OnModuleInit {
       needsAttentionCount,
       autoCommitted: false,
       suggestions: created,
+      deliveryPreviews,
+      deliveryFormatHeaders: pack.deliveryFormatHeaders,
+    };
+  }
+
+  /**
+   * Batch-enrich Sample Input (or seed raw items) into Delivery Format rows.
+   * Does not write live Product.values.
+   */
+  async batchUnilogEnrich(
+    organizationId: string,
+    actorId: string,
+    opts: {
+      source?: 'sample1000' | 'seed';
+      limit?: number;
+      skus?: string[];
+    } = {},
+  ) {
+    const pack = loadUnilogPack();
+    const source = opts.source || 'sample1000';
+    const pool =
+      source === 'seed'
+        ? pack.rawItems.map((r) => ({
+            ...r,
+            partManuf: r.partManuf || '',
+          }))
+        : pack.sampleItems;
+
+    if (!pool.length) {
+      throw new BadRequestException(
+        'No sample items loaded. Ensure packages/db/prisma/data/unilog/sample_items.json exists.',
+      );
+    }
+
+    let items = pool;
+    if (opts.skus?.length) {
+      const set = new Set(opts.skus);
+      items = items.filter((i) => set.has(i.sku) || set.has(i.mfgPartNum));
+    }
+    const limit = Math.min(Math.max(opts.limit || 50, 1), 1000);
+    items = items.slice(0, limit);
+
+    const dedupe = dedupeItems(
+      items.map((i) => ({ id: i.sku, mpn: i.mfgPartNum, partDesc: i.partDesc })),
+    );
+    const needsReviewSet = new Set(dedupe.needsReviewIds);
+
+    const rows = [];
+    const familyCounts: Record<string, number> = {};
+    let needsReviewCount = 0;
+
+    for (const item of items) {
+      const brandHints = cleanBrandCandidates(
+        item.unilogBrand,
+        item.dibBrand,
+        item.e1Brand,
+        item.partManuf,
+      );
+      const golden =
+        pack.goldenGt &&
+        (item.mfgPartNum === pack.goldenGt.mpn || item.partDesc.includes(pack.goldenGt.mpn))
+          ? pack.goldenGt.deliveryFormat
+          : undefined;
+
+      const enriched = enrichToDeliveryFormat({
+        partDesc: item.partDesc,
+        mpn: item.mfgPartNum,
+        brandHints,
+        familyHint: item.familyHint,
+        brandMaster: pack.brandMaster,
+        uomRules: pack.uomRules,
+        lov: pack.lov,
+        headers: pack.deliveryFormatHeaders,
+        taxonomy: pack.taxonomy,
+        e1Brand: item.e1Brand,
+        unilogBrand: item.unilogBrand,
+        dibBrand: item.dibBrand,
+        partManuf: item.partManuf,
+        sku: item.sku,
+        goldenOverrides: golden,
+        mfrUrl: golden?.['MFR URL'] || '',
+      });
+
+      familyCounts[enriched.family] = (familyCounts[enriched.family] || 0) + 1;
+      if (enriched.needsHumanReview || needsReviewSet.has(item.sku)) {
+        needsReviewCount += 1;
+        enriched.deliveryFormat['Discontinued'] = enriched.deliveryFormat['Discontinued'] || '';
+      }
+      rows.push(enriched.deliveryFormat);
+    }
+
+    const job: BatchJobSummary = {
+      jobId: randomUUID(),
+      organizationId,
+      source,
+      createdAt: new Date().toISOString(),
+      rowCount: rows.length,
+      needsReviewCount,
+      familyCounts,
+      rows,
+      skus: items.map((i) => i.sku),
+    };
+    saveBatchJob(job);
+
+    await this.billing.consumeAiCredits(organizationId, Math.max(1, Math.ceil(rows.length / 25)));
+    await this.audit.log({
+      organizationId,
+      actorId,
+      action: 'intelligence.unilog_batch',
+      entityType: 'Organization',
+      entityId: organizationId,
+      after: { jobId: job.jobId, rowCount: job.rowCount, source },
+    });
+
+    return {
+      jobId: job.jobId,
+      source: job.source,
+      rowCount: job.rowCount,
+      needsReviewCount: job.needsReviewCount,
+      familyCounts: job.familyCounts,
+      dedupeGroups: dedupe.groups.length,
+      preview: rows.slice(0, 5),
+      deliveryFormatHeaders: pack.deliveryFormatHeaders,
+      autoCommitted: false,
+    };
+  }
+
+  exportUnilogCsv(organizationId: string, opts: { skus?: string[] } = {}) {
+    const pack = loadUnilogPack();
+    const job = getBatchJob(organizationId);
+    if (!job?.rows.length) {
+      throw new NotFoundException(
+        'No batch job found. Run POST /api/ai/unilog/batch first.',
+      );
+    }
+    let rows = job.rows;
+    if (opts.skus?.length) {
+      const set = new Set(opts.skus);
+      rows = rows.filter(
+        (r) => set.has(r['SKU - MY_PART_NUMBER']) || set.has(r['Mfg_Part_Num']),
+      );
+    }
+    const csv = exportDeliveryFormatCsv(pack.deliveryFormatHeaders, rows);
+    return {
+      jobId: job.jobId,
+      rowCount: rows.length,
+      headerCount: pack.deliveryFormatHeaders.length,
+      csv,
+      filename: `kernle-delivery-format-${job.jobId.slice(0, 8)}.csv`,
     };
   }
 
@@ -1070,7 +1244,6 @@ export class IntelligenceService implements OnModuleInit {
         });
         for (const s of pending) {
           if (!s.attributeCode) continue;
-          // Prefer already-accepted live values; fill gaps from pending proposals
           if (!actualBySku[gt.sku][s.attributeCode]) {
             const flat = flattenValue(s.suggestedValue);
             if (flat) actualBySku[gt.sku][s.attributeCode] = flat;
@@ -1106,7 +1279,6 @@ export class IntelligenceService implements OnModuleInit {
         source: 'unilog_enrich',
       },
     });
-    // Count needsAttention via explanation JSON scan (lightweight)
     const pendingRows = await this.prisma.aiSuggestion.findMany({
       where: {
         organizationId,
@@ -1121,6 +1293,72 @@ export class IntelligenceService implements OnModuleInit {
       return !!exp?.needsAttention;
     }).length;
 
+    // Golden dishwasher Delivery Format score (offline pipeline)
+    let deliveryFormatEval: ReturnType<typeof scoreDeliveryFormatRow> | null = null;
+    if (pack.goldenGt) {
+      const golden = pack.goldenGt;
+      const predicted = enrichToDeliveryFormat({
+        partDesc: golden.deliveryFormat['Part_Desc'] || '',
+        mpn: golden.mpn,
+        brandHints: cleanBrandCandidates(
+          golden.deliveryFormat['BRAND_NAME'],
+          golden.deliveryFormat['DIB_Brand'],
+          golden.deliveryFormat['E1_Brand'],
+          golden.deliveryFormat['Part_Manuf'],
+        ),
+        familyHint: 'dishwasher',
+        brandMaster: pack.brandMaster,
+        uomRules: pack.uomRules,
+        lov: pack.lov,
+        headers: pack.deliveryFormatHeaders,
+        taxonomy: pack.taxonomy,
+        e1Brand: golden.deliveryFormat['E1_Brand'],
+        unilogBrand: golden.deliveryFormat['Unilog_Brand'],
+        dibBrand: golden.deliveryFormat['DIB_Brand'],
+        partManuf: golden.deliveryFormat['Part_Manuf'],
+        sku: golden.sku,
+        goldenOverrides: golden.deliveryFormat,
+        mfrUrl: golden.deliveryFormat['MFR URL'],
+      });
+      deliveryFormatEval = scoreDeliveryFormatRow({
+        expected: golden.deliveryFormat,
+        actual: predicted.deliveryFormat,
+      });
+    }
+
+    const scoredSubset = pack.scoredSubset || [];
+    let scoredSubsetHits = 0;
+    let scoredSubsetChecked = 0;
+    for (const row of scoredSubset.slice(0, 40)) {
+      const item = pack.sampleItems.find((s) => s.sku === row.sku);
+      if (!item) continue;
+      const enriched = enrichToDeliveryFormat({
+        partDesc: item.partDesc,
+        mpn: item.mfgPartNum,
+        brandHints: cleanBrandCandidates(
+          item.unilogBrand,
+          item.dibBrand,
+          item.e1Brand,
+          item.partManuf,
+        ),
+        familyHint: item.familyHint,
+        brandMaster: pack.brandMaster,
+        uomRules: pack.uomRules,
+        lov: pack.lov,
+        headers: pack.deliveryFormatHeaders,
+        taxonomy: pack.taxonomy,
+        e1Brand: item.e1Brand,
+        unilogBrand: item.unilogBrand,
+        dibBrand: item.dibBrand,
+        partManuf: item.partManuf,
+        sku: item.sku,
+      });
+      scoredSubsetChecked += 1;
+      if (enriched.deliveryFormat['Classpath'] === row.classpath) scoredSubsetHits += 1;
+      scoredSubsetChecked += 1;
+      if (enriched.deliveryFormat['MANUFACTURER_PART_NUMBER'] === row.mpn) scoredSubsetHits += 1;
+    }
+
     return {
       ...score,
       needsReviewCount,
@@ -1128,6 +1366,14 @@ export class IntelligenceService implements OnModuleInit {
       mode: usePending ? 'accepted_plus_pending' : 'accepted_only',
       labelledSkus: skus.length,
       productsFound: products.length,
+      deliveryFormatEval,
+      deliveryFormatHeaderCount: pack.deliveryFormatHeaders.length,
+      scoredSubsetAccuracy: scoredSubsetChecked
+        ? scoredSubsetHits / scoredSubsetChecked
+        : 0,
+      scoredSubsetChecked,
+      scoredSubsetHits,
+      sampleItemCount: pack.sampleItems.length,
     };
   }
 

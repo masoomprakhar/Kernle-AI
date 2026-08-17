@@ -69,6 +69,22 @@ async function main() {
   );
   if (!enrich.suggestionCount) throw new Error('enrich produced 0 suggestions');
   if (enrich.autoCommitted !== false) throw new Error('enrich must not auto-commit');
+  if (!enrich.deliveryPreviews?.length) throw new Error('enrich missing deliveryPreviews');
+
+  const batch = await json(
+    '/ai/unilog/batch',
+    { method: 'POST', body: JSON.stringify({ source: 'sample1000', limit: 10 }) },
+    headers,
+  );
+  if (batch.rowCount < 1) throw new Error('batch produced 0 rows');
+  if ((batch.deliveryFormatHeaders || []).length !== 252) {
+    throw new Error('batch headers !== 252');
+  }
+
+  const exported = await json('/ai/unilog/export', {}, headers);
+  const headerLine = String(exported.csv || '').split('\n')[0];
+  if (!headerLine.startsWith('MFR URL,')) throw new Error('export header mismatch');
+  if (headerLine.split(',').length !== 252) throw new Error('export header count !== 252');
 
   let accepted = 0;
   for (const p of items) {
@@ -101,6 +117,10 @@ async function main() {
         lovHitRate: score.lovHitRate,
         charLimitCompliance: score.charLimitCompliance,
         needsReviewCount: score.needsReviewCount,
+        deliveryFormatHeaderCount: score.deliveryFormatHeaderCount,
+        goldenDfAccuracy: score.deliveryFormatEval?.fieldAccuracy,
+        exportHeaderCount: exported.headerCount,
+        batchRows: batch.rowCount,
       },
       null,
       2,
@@ -114,6 +134,11 @@ async function main() {
   }
   if (score.lovHitRate < 0.8) {
     throw new Error(`lovHitRate ${score.lovHitRate} < 0.8`);
+  }
+  if ((score.deliveryFormatEval?.fieldAccuracy || 0) < 0.9) {
+    throw new Error(
+      `golden Delivery Format accuracy ${score.deliveryFormatEval?.fieldAccuracy} < 0.9`,
+    );
   }
 
   console.log('e2e-unilog OK');

@@ -99,14 +99,36 @@ async function main() {
   );
   console.log(
     `enrich: ${enrich.suggestionCount} suggestions / ${enrich.productCount} products` +
-      ` · needsAttention=${enrich.needsAttentionCount} · autoCommitted=${enrich.autoCommitted}`,
+      ` · needsAttention=${enrich.needsAttentionCount} · autoCommitted=${enrich.autoCommitted}` +
+      ` · deliveryPreviews=${(enrich.deliveryPreviews || []).length}`,
   );
+
+  const batch = await json(
+    '/ai/unilog/batch',
+    { method: 'POST', body: JSON.stringify({ source: 'sample1000', limit: 25 }) },
+    headers,
+  );
+  console.log(
+    `batch: ${batch.rowCount} Delivery Format rows · needsReview=${batch.needsReviewCount}` +
+      ` · headers=${(batch.deliveryFormatHeaders || []).length}`,
+  );
+
+  const exported = await json('/ai/unilog/export', {}, headers);
+  if (!exported.csv || !exported.csv.startsWith('MFR URL,')) {
+    throw new Error('export CSV missing frozen headers');
+  }
+  if ((exported.headerCount || 0) !== 252) {
+    throw new Error(`expected 252 headers, got ${exported.headerCount}`);
+  }
+  console.log(`export: ${exported.rowCount} rows → ${exported.filename}`);
 
   let eval1 = await json('/ai/unilog/eval', {}, headers);
   console.log(
     `eval (pending+live): accuracy=${pct(eval1.fieldAccuracy)}` +
       ` lov=${pct(eval1.lovHitRate)} char=${pct(eval1.charLimitCompliance)}` +
-      ` needsReview=${eval1.needsReviewCount}`,
+      ` needsReview=${eval1.needsReviewCount}` +
+      ` goldenDF=${pct(eval1.deliveryFormatEval?.fieldAccuracy)}` +
+      ` sampleSubset=${pct(eval1.scoredSubsetAccuracy)}`,
   );
 
   const products = await json('/pim/products?search=UNI-&pageSize=80', {}, headers);

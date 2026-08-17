@@ -4,55 +4,1171 @@
     "manufacturerCode": "MOEN",
     "brandName": "MOEN®",
     "brandCode": "MOEN",
-    "aliases": ["Moen", "MOEN", "moen inc", "Moen Inc.", "Moen Incorporated"]
+    "aliases": [
+      "Moen",
+      "MOEN",
+      "moen inc",
+      "Moen Inc.",
+      "Moen Incorporated"
+    ]
   },
   {
     "manufacturerName": "Delta Faucet Company",
     "manufacturerCode": "DELTA",
     "brandName": "DELTA®",
     "brandCode": "DELTA",
-    "aliases": ["Delta", "DELTA", "Delta Faucet", "delta faucet co"]
+    "aliases": [
+      "Delta",
+      "DELTA",
+      "Delta Faucet",
+      "delta faucet co"
+    ]
   },
   {
     "manufacturerName": "Kohler Co.",
     "manufacturerCode": "KOHLER",
     "brandName": "KOHLER®",
     "brandCode": "KOHLER",
-    "aliases": ["Kohler", "KOHLER", "Kohler Co", "kohler company"]
+    "aliases": [
+      "Kohler",
+      "KOHLER",
+      "Kohler Co",
+      "kohler company"
+    ]
   },
   {
     "manufacturerName": "Uponor Inc.",
     "manufacturerCode": "UPONOR",
     "brandName": "UPONOR®",
     "brandCode": "UPONOR",
-    "aliases": ["Uponor", "UPONOR", "Uponor Inc"]
+    "aliases": [
+      "Uponor",
+      "UPONOR",
+      "Uponor Inc"
+    ]
   },
   {
     "manufacturerName": "NIBCO Inc.",
     "manufacturerCode": "NIBCO",
     "brandName": "NIBCO®",
     "brandCode": "NIBCO",
-    "aliases": ["Nibco", "NIBCO", "NIBCO Inc", "nibco brass"]
+    "aliases": [
+      "Nibco",
+      "NIBCO",
+      "NIBCO Inc",
+      "nibco brass"
+    ]
   },
   {
     "manufacturerName": "Charlotte Pipe and Foundry Company",
     "manufacturerCode": "CHARLOTTE",
     "brandName": "CHARLOTTE PIPE®",
     "brandCode": "CHARPIPE",
-    "aliases": ["Charlotte", "Charlotte Pipe", "CHARLOTTE PIPE", "charlotte pvc"]
+    "aliases": [
+      "Charlotte",
+      "Charlotte Pipe",
+      "CHARLOTTE PIPE",
+      "charlotte pvc"
+    ]
   },
   {
     "manufacturerName": "Watts Water Technologies, Inc.",
     "manufacturerCode": "WATTS",
     "brandName": "WATTS®",
     "brandCode": "WATTS",
-    "aliases": ["Watts", "WATTS", "Watts Water", "watts regulator"]
+    "aliases": [
+      "Watts",
+      "WATTS",
+      "Watts Water",
+      "watts regulator"
+    ]
   },
   {
     "manufacturerName": "American Standard Brands",
     "manufacturerCode": "AMSTD",
     "brandName": "AMERICAN STANDARD®",
     "brandCode": "AMSTD",
-    "aliases": ["American Standard", "AMERICAN STANDARD", "AmStd", "american std"]
+    "aliases": [
+      "American Standard",
+      "AMERICAN STANDARD",
+      "AmStd",
+      "american std"
+    ]
+  },
+  {
+    "brandName": "Diablo",
+    "brandCode": "DIABLO",
+    "manufacturerName": "Freud Inc",
+    "manufacturerCode": "DIABLO",
+    "aliases": [
+      "DIABLO",
+      "Freud"
+    ]
+  },
+  {
+    "brandName": "3M",
+    "brandCode": "3M",
+    "manufacturerName": "3M Company",
+    "manufacturerCode": "3M",
+    "aliases": [
+      "3M",
+      "CUBITRON"
+    ]
+  },
+  {
+    "brandName": "Philips",
+    "brandCode": "PHILIPS",
+    "manufacturerName": "Signify North America Corporation",
+    "manufacturerCode": "PHILIP",
+    "aliases": [
+      "PHILIPS",
+      "PHILIPS LIGHTING"
+    ]
+  },
+  {
+    "brandName": "DEWALT",
+    "brandCode": "DEWALT",
+    "manufacturerName": "Stanley Black & Decker, Inc.",
+    "manufacturerCode": "DEWALT",
+    "aliases": [
+      "DEWALT",
+      "DE WALT"
+    ]
+  },
+  {
+    "brandName": "Leviton",
+    "brandCode": "LEVITON",
+    "manufacturerName": "Leviton Manufacturing Co., Inc.",
+    "manufacturerCode": "LEVITO",
+    "aliases": [
+      "LEVITON"
+    ]
+  },
+  {
+    "brandName": "TREX",
+    "brandCode": "TREX",
+    "manufacturerName": "Trex Company, Inc.",
+    "manufacturerCode": "TREX",
+    "aliases": [
+      "TREX"
+    ]
+  },
+  {
+    "brandName": "TIMBERTECH",
+    "brandCode": "TIMBERTECH",
+    "manufacturerName": "Azek Building Products, Inc.",
+    "manufacturerCode": "TIMBER",
+    "aliases": [
+      "TIMBERTECH",
+      "TIMBER TECH"
+    ]
+  },
+  {
+    "brandName": "Milwaukee",
+    "brandCode": "MILWAUKEE",
+    "manufacturerName": "Milwaukee Electric Tool Corporation",
+    "manufacturerCode": "MILWAU",
+    "aliases": [
+      "MILWAUKEE"
+    ]
+  },
+  {
+    "brandName": "Kichler",
+    "brandCode": "KICHLER",
+    "manufacturerName": "Kichler Lighting LLC",
+    "manufacturerCode": "KICHLE",
+    "aliases": [
+      "KICHLER"
+    ]
+  },
+  {
+    "brandName": "FRIGIDAIRE®",
+    "brandCode": "FRIGIDAIRE",
+    "manufacturerName": "Rheem Manufacturing",
+    "manufacturerCode": "FRIGID",
+    "aliases": [
+      "FRIGIDAIRE",
+      "FRIGIDAIRE®"
+    ]
+  },
+  {
+    "brandName": "DSI Westbury",
+    "brandCode": "DSIWESTBURY",
+    "manufacturerName": "Palmer Donavin Mfg Company",
+    "manufacturerCode": "PALDO",
+    "aliases": [
+      "DSI Westbury",
+      "DSI WESTBURY"
+    ]
+  },
+  {
+    "brandName": "AJM",
+    "brandCode": "AJM",
+    "manufacturerName": "A J Manufacturing Inc",
+    "manufacturerCode": "AJMAN",
+    "aliases": [
+      "AJM",
+      "AJM"
+    ]
+  },
+  {
+    "brandName": "United Window & Door",
+    "brandCode": "UNITEDWINDOW",
+    "manufacturerName": "United Window & Door Manufacturing",
+    "manufacturerCode": "UNIWI",
+    "aliases": [
+      "United Window & Door",
+      "UNITED WINDOW & DOOR"
+    ]
+  },
+  {
+    "brandName": "PROVIA",
+    "brandCode": "PROVIA",
+    "manufacturerName": "ProVia",
+    "manufacturerCode": "PRODO",
+    "aliases": [
+      "PROVIA",
+      "PROVIA"
+    ]
+  },
+  {
+    "brandName": "HAGER",
+    "brandCode": "HAGER",
+    "manufacturerName": "Hager Hinge Co",
+    "manufacturerCode": "4189",
+    "aliases": [
+      "HAGER",
+      "HAGER"
+    ]
+  },
+  {
+    "brandName": "JAMESHARDIE",
+    "brandCode": "JAMESHARDIE",
+    "manufacturerName": "Boise Cascade Building Materials",
+    "manufacturerCode": "BOICA",
+    "aliases": [
+      "JAMESHARDIE",
+      "JAMESHARDIE"
+    ]
+  },
+  {
+    "brandName": "LP SMARTSIDE",
+    "brandCode": "LPSMARTSIDE",
+    "manufacturerName": "U S Lumber",
+    "manufacturerCode": "3073",
+    "aliases": [
+      "LP SMARTSIDE",
+      "LP SMARTSIDE"
+    ]
+  },
+  {
+    "brandName": "Schumacher",
+    "brandCode": "SCHUMACHER",
+    "manufacturerName": "-",
+    "manufacturerCode": "SCHUMA",
+    "aliases": [
+      "Schumacher",
+      "SCHUMACHER"
+    ]
+  },
+  {
+    "brandName": "StealthMounts",
+    "brandCode": "STEALTHMOUNT",
+    "manufacturerName": "Metalmark Industrial Inc",
+    "manufacturerCode": "METIN",
+    "aliases": [
+      "StealthMounts",
+      "STEALTHMOUNTS"
+    ]
+  },
+  {
+    "brandName": "Southwire",
+    "brandCode": "SOUTHWIRE",
+    "manufacturerName": "Southwire/g Turner",
+    "manufacturerCode": "6603",
+    "aliases": [
+      "Southwire",
+      "SOUTHWIRE"
+    ]
+  },
+  {
+    "brandName": "Carlon",
+    "brandCode": "CARLON",
+    "manufacturerName": "Thomas & Betts",
+    "manufacturerCode": "7405",
+    "aliases": [
+      "Carlon",
+      "CARLON"
+    ]
+  },
+  {
+    "brandName": "Prime",
+    "brandCode": "PRIME",
+    "manufacturerName": "Prime Wire & Cable",
+    "manufacturerCode": "3562",
+    "aliases": [
+      "Prime",
+      "PRIME"
+    ]
+  },
+  {
+    "brandName": "Satco",
+    "brandCode": "SATCO",
+    "manufacturerName": "Satco Prod Inc",
+    "manufacturerCode": "5573",
+    "aliases": [
+      "Satco",
+      "SATCO"
+    ]
+  },
+  {
+    "brandName": "Wiz",
+    "brandCode": "WIZ",
+    "manufacturerName": "Phillips Lighting",
+    "manufacturerCode": "5831",
+    "aliases": [
+      "Wiz",
+      "WIZ"
+    ]
+  },
+  {
+    "brandName": "Feit Electric",
+    "brandCode": "FEITELECTRIC",
+    "manufacturerName": "Feit Electric",
+    "manufacturerCode": "3468",
+    "aliases": [
+      "Feit Electric",
+      "FEIT ELECTRIC"
+    ]
+  },
+  {
+    "brandName": "GT-Lite",
+    "brandCode": "GTLITE",
+    "manufacturerName": "Keystone",
+    "manufacturerCode": "5702",
+    "aliases": [
+      "GT-Lite",
+      "GT-LITE"
+    ]
+  },
+  {
+    "brandName": "Police Security",
+    "brandCode": "POLICESECURI",
+    "manufacturerName": "Police Security",
+    "manufacturerCode": "9470",
+    "aliases": [
+      "Police Security",
+      "POLICE SECURITY"
+    ]
+  },
+  {
+    "brandName": "Square D",
+    "brandCode": "SQUARED",
+    "manufacturerName": "Square D Con Prod Dv",
+    "manufacturerCode": "6825",
+    "aliases": [
+      "Square D",
+      "SQUARE D"
+    ]
+  },
+  {
+    "brandName": "Hunter",
+    "brandCode": "HUNTER",
+    "manufacturerName": "Hunter Fan Co",
+    "manufacturerCode": "4381",
+    "aliases": [
+      "Hunter",
+      "HUNTER"
+    ]
+  },
+  {
+    "brandName": "ANDERSEN",
+    "brandCode": "ANDERSEN",
+    "manufacturerName": "-",
+    "manufacturerCode": "ANDERS",
+    "aliases": [
+      "ANDERSEN",
+      "ANDERSEN"
+    ]
+  },
+  {
+    "brandName": "First Alert",
+    "brandCode": "FIRSTALERT",
+    "manufacturerName": "First Alert - B R K Brands",
+    "manufacturerCode": "2754",
+    "aliases": [
+      "First Alert",
+      "FIRST ALERT"
+    ]
+  },
+  {
+    "brandName": "BRK",
+    "brandCode": "BRK",
+    "manufacturerName": "First Alert - B R K Brands",
+    "manufacturerCode": "2754",
+    "aliases": [
+      "BRK",
+      "BRK"
+    ]
+  },
+  {
+    "brandName": "CENTURY COMPONENTS",
+    "brandCode": "CENTURYCOMPO",
+    "manufacturerName": "U S Tape Company",
+    "manufacturerCode": "6694",
+    "aliases": [
+      "CENTURY COMPONENTS",
+      "CENTURY COMPONENTS"
+    ]
+  },
+  {
+    "brandName": "Nicholson",
+    "brandCode": "NICHOLSON",
+    "manufacturerName": "-",
+    "manufacturerCode": "NICHOL",
+    "aliases": [
+      "Nicholson",
+      "NICHOLSON"
+    ]
+  },
+  {
+    "brandName": "Irwin",
+    "brandCode": "IRWIN",
+    "manufacturerName": "Irwin Industrial Tools",
+    "manufacturerCode": "5863",
+    "aliases": [
+      "Irwin",
+      "IRWIN"
+    ]
+  },
+  {
+    "brandName": "Dremel",
+    "brandCode": "DREMEL",
+    "manufacturerName": "Robt Bosch Tool Corp",
+    "manufacturerCode": "6564",
+    "aliases": [
+      "Dremel",
+      "DREMEL"
+    ]
+  },
+  {
+    "brandName": "Freud Inc",
+    "brandCode": "FREUDINC",
+    "manufacturerName": "Freud Inc",
+    "manufacturerCode": "2435",
+    "aliases": [
+      "Freud Inc",
+      "Freud Inc"
+    ]
+  },
+  {
+    "brandName": "Jam Industrial Supply LLC",
+    "brandCode": "JAMINDUSTRIA",
+    "manufacturerName": "Jam Industrial Supply LLC",
+    "manufacturerCode": "JAMIN",
+    "aliases": [
+      "Jam Industrial Supply LLC",
+      "Jam Industrial Supply LLC"
+    ]
+  },
+  {
+    "brandName": "Mirka Abrasives Inc",
+    "brandCode": "MIRKAABRASIV",
+    "manufacturerName": "Mirka Abrasives Inc",
+    "manufacturerCode": "MIRUS",
+    "aliases": [
+      "Mirka Abrasives Inc",
+      "Mirka Abrasives Inc"
+    ]
+  },
+  {
+    "brandName": "Milwaukee Accessory",
+    "brandCode": "MILWAUKEEACC",
+    "manufacturerName": "Milwaukee Accessory",
+    "manufacturerCode": "4031",
+    "aliases": [
+      "Milwaukee Accessory",
+      "Milwaukee Accessory"
+    ]
+  },
+  {
+    "brandName": "3 M Co",
+    "brandCode": "3MCO",
+    "manufacturerName": "3 M Co",
+    "manufacturerCode": "5293",
+    "aliases": [
+      "3 M Co",
+      "3 M Co"
+    ]
+  },
+  {
+    "brandName": "Emseal Joint Systems Ltd",
+    "brandCode": "EMSEALJOINTS",
+    "manufacturerName": "Emseal Joint Systems Ltd",
+    "manufacturerCode": "EMSJO",
+    "aliases": [
+      "Emseal Joint Systems Ltd",
+      "Emseal Joint Systems Ltd"
+    ]
+  },
+  {
+    "brandName": "Appliance Dealers Cooperative",
+    "brandCode": "APPLIANCEDEA",
+    "manufacturerName": "Appliance Dealers Cooperative",
+    "manufacturerCode": "APPDE",
+    "aliases": [
+      "Appliance Dealers Cooperative",
+      "Appliance Dealers Cooperative"
+    ]
+  },
+  {
+    "brandName": "V & V Appliance Parts Inc",
+    "brandCode": "VVAPPLIANCEP",
+    "manufacturerName": "V & V Appliance Parts Inc",
+    "manufacturerCode": "VVAPP",
+    "aliases": [
+      "V & V Appliance Parts Inc",
+      "V & V Appliance Parts Inc"
+    ]
+  },
+  {
+    "brandName": "Wera Tools NA Inc",
+    "brandCode": "WERATOOLSNAI",
+    "manufacturerName": "Wera Tools NA Inc",
+    "manufacturerCode": "WERTO",
+    "aliases": [
+      "Wera Tools NA Inc",
+      "Wera Tools NA Inc"
+    ]
+  },
+  {
+    "brandName": "-",
+    "brandCode": "",
+    "manufacturerName": "-",
+    "manufacturerCode": "",
+    "aliases": [
+      "-",
+      "-"
+    ]
+  },
+  {
+    "brandName": "Rees Cast Stone Company",
+    "brandCode": "REESCASTSTON",
+    "manufacturerName": "Rees Cast Stone Company",
+    "manufacturerCode": "REECA",
+    "aliases": [
+      "Rees Cast Stone Company",
+      "Rees Cast Stone Company"
+    ]
+  },
+  {
+    "brandName": "U S Lumber",
+    "brandCode": "USLUMBER",
+    "manufacturerName": "U S Lumber",
+    "manufacturerCode": "3073",
+    "aliases": [
+      "U S Lumber",
+      "U S Lumber"
+    ]
+  },
+  {
+    "brandName": "Boise Cascade Building Materials",
+    "brandCode": "BOISECASCADE",
+    "manufacturerName": "Boise Cascade Building Materials",
+    "manufacturerCode": "BOICA",
+    "aliases": [
+      "Boise Cascade Building Materials",
+      "Boise Cascade Building Materials"
+    ]
+  },
+  {
+    "brandName": "Parksite",
+    "brandCode": "PARKSITE",
+    "manufacturerName": "Parksite",
+    "manufacturerCode": "6151",
+    "aliases": [
+      "Parksite",
+      "Parksite"
+    ]
+  },
+  {
+    "brandName": "Palmer Donavin Mfg Company",
+    "brandCode": "PALMERDONAVI",
+    "manufacturerName": "Palmer Donavin Mfg Company",
+    "manufacturerCode": "PALDO",
+    "aliases": [
+      "Palmer Donavin Mfg Company",
+      "Palmer Donavin Mfg Company"
+    ]
+  },
+  {
+    "brandName": "A J Manufacturing Inc",
+    "brandCode": "AJMANUFACTUR",
+    "manufacturerName": "A J Manufacturing Inc",
+    "manufacturerCode": "AJMAN",
+    "aliases": [
+      "A J Manufacturing Inc",
+      "A J Manufacturing Inc"
+    ]
+  },
+  {
+    "brandName": "Velux America Inc",
+    "brandCode": "VELUXAMERICA",
+    "manufacturerName": "Velux America Inc",
+    "manufacturerCode": "VELAM",
+    "aliases": [
+      "Velux America Inc",
+      "Velux America Inc"
+    ]
+  },
+  {
+    "brandName": "Certainteed Gypsum",
+    "brandCode": "CERTAINTEEDG",
+    "manufacturerName": "Certainteed Gypsum",
+    "manufacturerCode": "2765",
+    "aliases": [
+      "Certainteed Gypsum",
+      "Certainteed Gypsum"
+    ]
+  },
+  {
+    "brandName": "Hager Hinge Co",
+    "brandCode": "HAGERHINGECO",
+    "manufacturerName": "Hager Hinge Co",
+    "manufacturerCode": "4189",
+    "aliases": [
+      "Hager Hinge Co",
+      "Hager Hinge Co"
+    ]
+  },
+  {
+    "brandName": "Huber Eng Wood LLC",
+    "brandCode": "HUBERENGWOOD",
+    "manufacturerName": "Huber Eng Wood LLC",
+    "manufacturerCode": "3158",
+    "aliases": [
+      "Huber Eng Wood LLC",
+      "Huber Eng Wood LLC"
+    ]
+  },
+  {
+    "brandName": "Westwood Lumber Sales",
+    "brandCode": "WESTWOODLUMB",
+    "manufacturerName": "Westwood Lumber Sales",
+    "manufacturerCode": "WESLU",
+    "aliases": [
+      "Westwood Lumber Sales",
+      "Westwood Lumber Sales"
+    ]
+  },
+  {
+    "brandName": "Premier Metals",
+    "brandCode": "PREMIERMETAL",
+    "manufacturerName": "Premier Metals",
+    "manufacturerCode": "PREME",
+    "aliases": [
+      "Premier Metals",
+      "Premier Metals"
+    ]
+  },
+  {
+    "brandName": "MillerTech Energy Solutions",
+    "brandCode": "MILLERTECHEN",
+    "manufacturerName": "MillerTech Energy Solutions",
+    "manufacturerCode": "MILTE",
+    "aliases": [
+      "MillerTech Energy Solutions",
+      "MillerTech Energy Solutions"
+    ]
+  },
+  {
+    "brandName": "Metalmark Industrial Inc",
+    "brandCode": "METALMARKIND",
+    "manufacturerName": "Metalmark Industrial Inc",
+    "manufacturerCode": "METIN",
+    "aliases": [
+      "Metalmark Industrial Inc",
+      "Metalmark Industrial Inc"
+    ]
+  },
+  {
+    "brandName": "Southwire/g Turner",
+    "brandCode": "SOUTHWIREGTU",
+    "manufacturerName": "Southwire/g Turner",
+    "manufacturerCode": "6603",
+    "aliases": [
+      "Southwire/g Turner",
+      "Southwire/g Turner"
+    ]
+  },
+  {
+    "brandName": "Thomas & Betts",
+    "brandCode": "THOMASBETTS",
+    "manufacturerName": "Thomas & Betts",
+    "manufacturerCode": "7405",
+    "aliases": [
+      "Thomas & Betts",
+      "Thomas & Betts"
+    ]
+  },
+  {
+    "brandName": "Cooper Wiring Devices",
+    "brandCode": "COOPERWIRING",
+    "manufacturerName": "Cooper Wiring Devices",
+    "manufacturerCode": "3560",
+    "aliases": [
+      "Cooper Wiring Devices",
+      "Cooper Wiring Devices"
+    ]
+  },
+  {
+    "brandName": "Fenton Bros Electric Inc",
+    "brandCode": "FENTONBROSEL",
+    "manufacturerName": "Fenton Bros Electric Inc",
+    "manufacturerCode": "FENBR",
+    "aliases": [
+      "Fenton Bros Electric Inc",
+      "Fenton Bros Electric Inc"
+    ]
+  },
+  {
+    "brandName": "Leviton Mfg Co",
+    "brandCode": "LEVITONMFGCO",
+    "manufacturerName": "Leviton Mfg Co",
+    "manufacturerCode": "4927",
+    "aliases": [
+      "Leviton Mfg Co",
+      "Leviton Mfg Co"
+    ]
+  },
+  {
+    "brandName": "Prime Wire & Cable",
+    "brandCode": "PRIMEWIRECAB",
+    "manufacturerName": "Prime Wire & Cable",
+    "manufacturerCode": "3562",
+    "aliases": [
+      "Prime Wire & Cable",
+      "Prime Wire & Cable"
+    ]
+  },
+  {
+    "brandName": "Satco Prod Inc",
+    "brandCode": "SATCOPRODINC",
+    "manufacturerName": "Satco Prod Inc",
+    "manufacturerCode": "5573",
+    "aliases": [
+      "Satco Prod Inc",
+      "Satco Prod Inc"
+    ]
+  },
+  {
+    "brandName": "Kichler Lighting",
+    "brandCode": "KICHLERLIGHT",
+    "manufacturerName": "Kichler Lighting",
+    "manufacturerCode": "KICLI",
+    "aliases": [
+      "Kichler Lighting",
+      "Kichler Lighting"
+    ]
+  },
+  {
+    "brandName": "Cooper Lighting",
+    "brandCode": "COOPERLIGHTI",
+    "manufacturerName": "Cooper Lighting",
+    "manufacturerCode": "7638",
+    "aliases": [
+      "Cooper Lighting",
+      "Cooper Lighting"
+    ]
+  },
+  {
+    "brandName": "Phillips Lighting",
+    "brandCode": "PHILLIPSLIGH",
+    "manufacturerName": "Phillips Lighting",
+    "manufacturerCode": "5831",
+    "aliases": [
+      "Phillips Lighting",
+      "Phillips Lighting"
+    ]
+  },
+  {
+    "brandName": "Lithonia Lighting",
+    "brandCode": "LITHONIALIGH",
+    "manufacturerName": "Lithonia Lighting",
+    "manufacturerCode": "2776",
+    "aliases": [
+      "Lithonia Lighting",
+      "Lithonia Lighting"
+    ]
+  },
+  {
+    "brandName": "Keystone",
+    "brandCode": "KEYSTONE",
+    "manufacturerName": "Keystone",
+    "manufacturerCode": "5702",
+    "aliases": [
+      "Keystone",
+      "Keystone"
+    ]
+  },
+  {
+    "brandName": "Maxsa Innovations",
+    "brandCode": "MAXSAINNOVAT",
+    "manufacturerName": "Maxsa Innovations",
+    "manufacturerCode": "MAXIN",
+    "aliases": [
+      "Maxsa Innovations",
+      "Maxsa Innovations"
+    ]
+  },
+  {
+    "brandName": "Black & Decker/dewlt",
+    "brandCode": "BLACKDECKERD",
+    "manufacturerName": "Black & Decker/dewlt",
+    "manufacturerCode": "2585",
+    "aliases": [
+      "Black & Decker/dewlt",
+      "Black & Decker/dewlt"
+    ]
+  },
+  {
+    "brandName": "Streamlight",
+    "brandCode": "STREAMLIGHT",
+    "manufacturerName": "Streamlight",
+    "manufacturerCode": "7277",
+    "aliases": [
+      "Streamlight",
+      "Streamlight"
+    ]
+  },
+  {
+    "brandName": "ACG Brands",
+    "brandCode": "ACGBRANDS",
+    "manufacturerName": "ACG Brands",
+    "manufacturerCode": "1154",
+    "aliases": [
+      "ACG Brands",
+      "ACG Brands"
+    ]
+  },
+  {
+    "brandName": "Square D Con Prod Dv",
+    "brandCode": "SQUAREDCONPR",
+    "manufacturerName": "Square D Con Prod Dv",
+    "manufacturerCode": "6825",
+    "aliases": [
+      "Square D Con Prod Dv",
+      "Square D Con Prod Dv"
+    ]
+  },
+  {
+    "brandName": "Woods Wire Southwire",
+    "brandCode": "WOODSWIRESOU",
+    "manufacturerName": "Woods Wire Southwire",
+    "manufacturerCode": "7579",
+    "aliases": [
+      "Woods Wire Southwire",
+      "Woods Wire Southwire"
+    ]
+  },
+  {
+    "brandName": "Senco Products Inc",
+    "brandCode": "SENCOPRODUCT",
+    "manufacturerName": "Senco Products Inc",
+    "manufacturerCode": "4650",
+    "aliases": [
+      "Senco Products Inc",
+      "Senco Products Inc"
+    ]
+  },
+  {
+    "brandName": "National Nail Corp",
+    "brandCode": "NATIONALNAIL",
+    "manufacturerName": "National Nail Corp",
+    "manufacturerCode": "7439",
+    "aliases": [
+      "National Nail Corp",
+      "National Nail Corp"
+    ]
+  },
+  {
+    "brandName": "Prebena",
+    "brandCode": "PREBENA",
+    "manufacturerName": "Prebena",
+    "manufacturerCode": "PREBE",
+    "aliases": [
+      "Prebena",
+      "Prebena"
+    ]
+  },
+  {
+    "brandName": "Hunter Fan Co",
+    "brandCode": "HUNTERFANCO",
+    "manufacturerName": "Hunter Fan Co",
+    "manufacturerCode": "4381",
+    "aliases": [
+      "Hunter Fan Co",
+      "Hunter Fan Co"
+    ]
+  },
+  {
+    "brandName": "Makita Usa Inc",
+    "brandCode": "MAKITAUSAINC",
+    "manufacturerName": "Makita Usa Inc",
+    "manufacturerCode": "5142",
+    "aliases": [
+      "Makita Usa Inc",
+      "Makita Usa Inc"
+    ]
+  },
+  {
+    "brandName": "Sabre",
+    "brandCode": "SABRE",
+    "manufacturerName": "Sabre",
+    "manufacturerCode": "9195",
+    "aliases": [
+      "Sabre",
+      "Sabre"
+    ]
+  },
+  {
+    "brandName": "Marshalltown Trowel",
+    "brandCode": "MARSHALLTOWN",
+    "manufacturerName": "Marshalltown Trowel",
+    "manufacturerCode": "5155",
+    "aliases": [
+      "Marshalltown Trowel",
+      "Marshalltown Trowel"
+    ]
+  },
+  {
+    "brandName": "Edge Eyewear Inc",
+    "brandCode": "EDGEEYEWEARI",
+    "manufacturerName": "Edge Eyewear Inc",
+    "manufacturerCode": "EDGSA",
+    "aliases": [
+      "Edge Eyewear Inc",
+      "Edge Eyewear Inc"
+    ]
+  },
+  {
+    "brandName": "Ohio Firewatch Protection Inc",
+    "brandCode": "OHIOFIREWATC",
+    "manufacturerName": "Ohio Firewatch Protection Inc",
+    "manufacturerCode": "HOLFS",
+    "aliases": [
+      "Ohio Firewatch Protection Inc",
+      "Ohio Firewatch Protection Inc"
+    ]
+  },
+  {
+    "brandName": "First Alert - B R K Brands",
+    "brandCode": "FIRSTALERTBR",
+    "manufacturerName": "First Alert - B R K Brands",
+    "manufacturerCode": "2754",
+    "aliases": [
+      "First Alert - B R K Brands",
+      "First Alert - B R K Brands"
+    ]
+  },
+  {
+    "brandName": "Tech Gear 5.7 Inc",
+    "brandCode": "TECHGEAR57IN",
+    "manufacturerName": "Tech Gear 5.7 Inc",
+    "manufacturerCode": "TECGE",
+    "aliases": [
+      "Tech Gear 5.7 Inc",
+      "Tech Gear 5.7 Inc"
+    ]
+  },
+  {
+    "brandName": "Radians",
+    "brandCode": "RADIANS",
+    "manufacturerName": "Radians",
+    "manufacturerCode": "7363",
+    "aliases": [
+      "Radians",
+      "Radians"
+    ]
+  },
+  {
+    "brandName": "Woodpeckers Inc",
+    "brandCode": "WOODPECKERSI",
+    "manufacturerName": "Woodpeckers Inc",
+    "manufacturerCode": "WOODP",
+    "aliases": [
+      "Woodpeckers Inc",
+      "Woodpeckers Inc"
+    ]
+  },
+  {
+    "brandName": "Robt Bosch Tool Corp",
+    "brandCode": "ROBTBOSCHTOO",
+    "manufacturerName": "Robt Bosch Tool Corp",
+    "manufacturerCode": "6564",
+    "aliases": [
+      "Robt Bosch Tool Corp",
+      "Robt Bosch Tool Corp"
+    ]
+  },
+  {
+    "brandName": "U S Tape Company",
+    "brandCode": "USTAPECOMPAN",
+    "manufacturerName": "U S Tape Company",
+    "manufacturerCode": "6694",
+    "aliases": [
+      "U S Tape Company",
+      "U S Tape Company"
+    ]
+  },
+  {
+    "brandName": "Amana Tool Corp",
+    "brandCode": "AMANATOOLCOR",
+    "manufacturerName": "Amana Tool Corp",
+    "manufacturerCode": "AMATO",
+    "aliases": [
+      "Amana Tool Corp",
+      "Amana Tool Corp"
+    ]
+  },
+  {
+    "brandName": "Whiteside Machine & Repair Co",
+    "brandCode": "WHITESIDEMAC",
+    "manufacturerName": "Whiteside Machine & Repair Co",
+    "manufacturerCode": "WHIMA",
+    "aliases": [
+      "Whiteside Machine & Repair Co",
+      "Whiteside Machine & Repair Co"
+    ]
+  },
+  {
+    "brandName": "Vessel Tools USA Inc",
+    "brandCode": "VESSELTOOLSU",
+    "manufacturerName": "Vessel Tools USA Inc",
+    "manufacturerCode": "VESTO",
+    "aliases": [
+      "Vessel Tools USA Inc",
+      "Vessel Tools USA Inc"
+    ]
+  },
+  {
+    "brandName": "Malco Prod",
+    "brandCode": "MALCOPROD",
+    "manufacturerName": "Malco Prod",
+    "manufacturerCode": "2370",
+    "aliases": [
+      "Malco Prod",
+      "Malco Prod"
+    ]
+  },
+  {
+    "brandName": "Irwin Industrial Tools",
+    "brandCode": "IRWININDUSTR",
+    "manufacturerName": "Irwin Industrial Tools",
+    "manufacturerCode": "5863",
+    "aliases": [
+      "Irwin Industrial Tools",
+      "Irwin Industrial Tools"
+    ]
+  },
+  {
+    "brandName": "Kreg Tool Company",
+    "brandCode": "KREGTOOLCOMP",
+    "manufacturerName": "Kreg Tool Company",
+    "manufacturerCode": "KRETO",
+    "aliases": [
+      "Kreg Tool Company",
+      "Kreg Tool Company"
+    ]
+  },
+  {
+    "brandName": "King Canada Inc",
+    "brandCode": "KINGCANADAIN",
+    "manufacturerName": "King Canada Inc",
+    "manufacturerCode": "KINCA",
+    "aliases": [
+      "King Canada Inc",
+      "King Canada Inc"
+    ]
+  },
+  {
+    "brandName": "Festool USA",
+    "brandCode": "FESTOOLUSA",
+    "manufacturerName": "Festool USA",
+    "manufacturerCode": "FESTO",
+    "aliases": [
+      "Festool USA",
+      "Festool USA"
+    ]
+  },
+  {
+    "brandName": "CMT USA Inc",
+    "brandCode": "CMTUSAINC",
+    "manufacturerName": "CMT USA Inc",
+    "manufacturerCode": "CMTUS",
+    "aliases": [
+      "CMT USA Inc",
+      "CMT USA Inc"
+    ]
+  },
+  {
+    "brandName": "JPW Industries",
+    "brandCode": "JPWINDUSTRIE",
+    "manufacturerName": "JPW Industries",
+    "manufacturerCode": "JPWIN",
+    "aliases": [
+      "JPW Industries",
+      "JPW Industries"
+    ]
+  },
+  {
+    "brandName": "Woodstock Intl",
+    "brandCode": "WOODSTOCKINT",
+    "manufacturerName": "Woodstock Intl",
+    "manufacturerCode": "3658",
+    "aliases": [
+      "Woodstock Intl",
+      "Woodstock Intl"
+    ]
+  },
+  {
+    "brandName": "Bow Products",
+    "brandCode": "BOWPRODUCTS",
+    "manufacturerName": "Bow Products",
+    "manufacturerCode": "BOWPR",
+    "aliases": [
+      "Bow Products",
+      "Bow Products"
+    ]
+  },
+  {
+    "brandName": "Saw Stop LLC",
+    "brandCode": "SAWSTOPLLC",
+    "manufacturerName": "Saw Stop LLC",
+    "manufacturerCode": "SAWST",
+    "aliases": [
+      "Saw Stop LLC",
+      "Saw Stop LLC"
+    ]
+  },
+  {
+    "brandName": "Oliver Machinery Company",
+    "brandCode": "OLIVERMACHIN",
+    "manufacturerName": "Oliver Machinery Company",
+    "manufacturerCode": "OLIMA",
+    "aliases": [
+      "Oliver Machinery Company",
+      "Oliver Machinery Company"
+    ]
+  },
+  {
+    "brandName": "J&G Machinery",
+    "brandCode": "JGMACHINERY",
+    "manufacturerName": "J&G Machinery",
+    "manufacturerCode": "JGMAC",
+    "aliases": [
+      "J&G Machinery",
+      "J&G Machinery"
+    ]
   }
 ]

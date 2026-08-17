@@ -77,3 +77,8 @@ export interface ApiErrorBody {
   message: string | string[];
   error?: string;
 }
+
+/** Frozen Unilog Expected Output Delivery Format (252 columns). */
+export type DeliveryFormatRow = Record<string, string>;
+
+export const DELIVERY_FORMAT_HEADER_COUNT = 252;
